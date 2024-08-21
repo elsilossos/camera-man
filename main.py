@@ -5,7 +5,12 @@ import time
 import numpy as np
 import pyvirtualcam 
 import settings as stt
+import tkinter as tk
 
+
+# input vars
+in1 = 1
+in2 = 0
 # Load the pre-trained Haar cascade for face detection
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 # set up queues
@@ -14,8 +19,27 @@ frame_queue = queue.Queue(maxsize=1)
 frame_queue2 = queue.Queue(maxsize=1)
 status_queue = queue.Queue(maxsize=1)
 settings = stt.get_settings()
-tech_preview = False                          # !!! settings
+#set up UI
+root = tk.Tk()
+root.title('Elia-Kameramann AI Kontrollpanel')
+
+# thread locking
+lock = threading.Lock()
+
+# UI vars
+PiP = False
+Chroma = False
+standby = True
+running = True
+tech_preview = False    
+tech_preview_mem = False                         
 preview = True
+preview_mem = True
+chroma_color = [0,0,0]
+face_tracking = False
+internal_out = True
+
+
 
 
 
@@ -39,10 +63,178 @@ preview = True
 
 
 
+# UI change functions
+def PiP_on():
+    global PiP, Chroma
+    with lock:
+        PiP, Chroma = True, False
+
+    update_PiP_btn()
+    update_Chroma_btn()
+    update_PiPChrom_off_btn()
+
+def update_PiP_btn():
+    if PiP:
+        PiP_btn.config(bg="green", fg='white')
+    else:
+        PiP_btn.config(bg="grey", fg='black')
+        
+
+def Chroma_on():
+    global PiP, Chroma
+    with lock:
+        PiP, Chroma = False, True
+
+    update_PiP_btn()
+    update_Chroma_btn()
+    update_PiPChrom_off_btn()
+
+
+def update_Chroma_btn():
+    if Chroma:
+        Chroma_btn.config(bg="green", fg='white')
+    else:
+        Chroma_btn.config(bg="grey", fg='black')
+
+
+def PiP_Chroma_off():
+    global PiP, Chroma
+    with lock:
+        PiP, Chroma = False 
+
+    update_PiP_btn()
+    update_Chroma_btn()
+    update_PiPChrom_off_btn()
+
+
+def update_PiPChrom_off_btn():
+    if not Chroma and not PiP:
+        PiPChrom_off_btn.config(bg='red', fg='white')
+    else:
+        PiPChrom_off_btn.config(bg='grey', fg='black')
 
 
 
-# define the worker thread function
+def update_standby_btn():
+    if standby:
+        standby_btn.config(text="Starten", bg="green", fg='white')
+    else:
+        standby_btn.config(text="Standby einschalten", bg="red", fg='white')
+
+
+def toggle_standby():
+    global standby, preview, tech_preview
+
+    with lock:
+        if standby:
+            standby = False
+        else: 
+            standby = True
+            preview, tech_preview = False
+    
+    update_standby_btn()
+
+
+
+def toggle_face_tracking():
+    global face_tracking
+
+    with lock:
+        if face_tracking: 
+            face_tracking = False
+        else: 
+            face_tracking = True
+
+    update_face_tracking_btn()
+
+
+def update_face_tracking_btn():
+    if face_tracking: #...
+        face_tracking_btn.config(bg='red', fg='white', text='RenéAI ausschalten')
+    else:
+        face_tracking_btn.config(bg='grey', fg='black', text='RenéAI einschalten')
+
+
+
+def toggle_preview():
+    global preview
+
+    with lock:
+        if preview: 
+            preview = False
+        else: 
+            preview = True
+
+    update_preview_btn()
+
+
+def update_preview_btn():
+    if preview:
+        preview_btn.config(bg='red', fg='while', text='Vorschaufenster ausschalten')
+    else:
+        preview_btn.config(bg='grey', fg='black', text='Vorschaufenster einschalten')
+
+
+def toggle_tech_preview():
+    global tech_preview
+
+    with lock:
+        if tech_preview:
+            tech_preview = False
+        else:
+            tech_preview = True
+
+    update_tech_preview_btn()
+
+
+def update_tech_preview_btn():
+    if tech_preview:
+        tech_preview_btn.config(text='Techvorschau ausschalten', fg='white', bg='red')
+    else:
+        tech_preview_btn.config(text='Techvorschau einschalten', fg='black', bg='grey')
+
+
+def update_chroma_color(slctn):
+    global chroma_color
+
+    color_map = {
+        "Black": [0, 0, 0],
+        "White": [255, 255, 255],
+        "Green": [0, 255, 0],
+        "Blue": [0, 0, 255]
+    }
+    chroma_color = color_map[slctn]
+
+def update_internal_out():
+    global internal_out
+
+    internal_out = not internal_out
+
+    update_internal_out_btn()
+
+def update_internal_out_btn():
+    if internal_out:
+        internal_out_btn.config(text='Internen Output ausschalten', fg='white', bg='red')
+    else:
+        internal_out_btn.config(text='Internen Output einschalten', fg='white', bg='green')
+
+
+
+
+
+
+
+
+
+
+
+#################################
+#################################
+
+
+
+
+# define the face tracking thread function
 def face_tracker_thread(frame_queue, result_queue, aspectR_w, aspectR_h):
     while True:
         frame = frame_queue.get()
@@ -607,6 +799,49 @@ def small_split(frame1, frame2, margin=10, pc_size = 0.3):
 
 
 
+# function for chroma-key:
+def chroma_key(frame, frame2, chroma_color, tolerance=40):
+    # Convert chroma_color from a list to a numpy array for easier manipulation
+    chroma_color = np.array(chroma_color, dtype=np.uint8)
+
+    # Calculate the lower and upper bounds for the color (considering tolerance)
+    lower_bound = np.clip(chroma_color - tolerance, 0, 255)
+    upper_bound = np.clip(chroma_color + tolerance, 0, 255)
+
+    # Create a mask that detects all pixels within the color range
+    mask = cv2.inRange(frame2, lower_bound, upper_bound)
+
+    # Invert the mask so that the chroma color becomes 0 (transparent)
+    mask_inv = cv2.bitwise_not(mask)
+
+    # Use the mask to extract the region from frame2 that should be visible
+    frame2_fg = cv2.bitwise_and(frame2, frame2, mask=mask_inv)
+
+    # Extract the region from frame where frame2 will be overlaid
+    frame_bg = cv2.bitwise_and(frame, frame, mask=mask)
+
+    # Combine the background and foreground
+    combined = cv2.add(frame_bg, frame2_fg)
+
+    return combined
+
+
+
+
+
+
+def ui_thread(root):
+    '''keeps the UI running and ends program when UI is x'ed.'''
+    global running
+
+    root.mainloop()
+
+    # terminate program upon closing of window
+    running = False
+
+
+
+
 
 
 
@@ -627,6 +862,63 @@ def small_split(frame1, frame2, margin=10, pc_size = 0.3):
 #################################
 
 
+
+
+
+#################################
+####   Initiate UI Elements  ####
+#################################
+
+# standby-button
+standby_btn = tk.Button(root, text="Start", bg="green", command=toggle_standby, font=("Arial", 16))
+standby_btn.grid(column=0, columnspan=3, row=0)
+
+# PiP-button
+PiP_btn = tk.Button(root, text='PiP einschalten', bg='grey', command=PiP_on, font=("Arial", 16))
+PiP_btn.grid(column=0, columnspan=1, row=1)
+
+# Chroma button
+Chroma_btn = tk.Button(root, text='Chroma einschalten', bg='grey', command=Chroma_on, font=("Arial", 16))
+Chroma_btn.grid(column=1, columnspan=1, row=1)
+
+# Chroma und PiP off button
+PiPChrom_off_btn = tk.Button(root, text="2. Input aus", bg="grey", command=PiP_Chroma_off, font=("Arial", 16))
+PiPChrom_off_btn.grid(column=2, columnspan=1, row=1)
+
+# ...
+
+
+# chroma-color dropdown
+# Define the available colors in the dropdown
+color_options = ["Black", "White", "Green", "Blue"]
+
+# Create a Tkinter variable to store the selected color
+selected_color = tk.StringVar(root)
+selected_color.set("Black")  # Default value
+
+# Create the dropdown for Chroma color selection
+chroma_color_lbl = tk.Label(root, text='Farbe für Chroma auswählen:', font=('Arial', 16), fg='black')
+chroma_color_lbl.grid(column=0, columnspan=3, row=2)
+chroma_color_dropdown = tk.OptionMenu(root, selected_color, *color_options, command=update_chroma_color)
+chroma_color_dropdown.grid(column=0, columnspan=3, row=3)
+
+# face-tracking button
+face_tracking_btn = tk.Button(root, text='RenéAI einschalten', font=('Arial', 16), fg='black', bg='grey', command=toggle_face_tracking)
+face_tracking_btn.grid(column=0, columnspan=3, row=4)
+
+# internal output
+internal_out_btn = tk.Button(root, text='Internen Output ausschalten', fg='white', bg='red', font=('Arial', 16), command=update_internal_out)
+internal_out_btn.grid(column=0, columnspan=1, row=5)
+
+# preview button
+preview_btn = tk.Button(root, text='Vorschaufenster einschalten', fg='black', bg='grey', font=('Arial', 16), command=toggle_preview)
+preview_btn.grid(column=1, columnspan=1, row=5)
+
+# tech-preview button
+tech_preview_btn = tk.Button(root, text='Techvorschau einschalten', fg='black', bg='grey', font=('Arial', 16), command=toggle_tech_preview)
+tech_preview_btn.grid(column=2, columnspan=1, row=5)
+
+# ...
 
 
 
@@ -634,8 +926,8 @@ def small_split(frame1, frame2, margin=10, pc_size = 0.3):
 
 
 # Open a connection to the default camera (camera 0)
-cap = cv2.VideoCapture(0)
-cap2 = cv2.VideoCapture(1)
+cap = cv2.VideoCapture(in1)
+cap2 = cv2.VideoCapture(in2)
 
 # Check if the camera opened successfully
 if not cap.isOpened():
@@ -653,7 +945,7 @@ frame_width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
 frame_height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
 zoom_coeff_h = frame_height / 4
 #zoom_coeff_w = frame_width
-print('Width: ', frame_width, '\nHeight: ', frame_height)
+#print('Width: ', frame_width, '\nHeight: ', frame_height)
 
 # set initial crops to max frame, both current (crr_crop) and target (tg_crop)
 crr_crop_x, crr_crop_y, crr_crop_w, crr_crop_h = 0, 0, frame_width, frame_height
@@ -662,11 +954,14 @@ lv_crop_x, lv_crop_y, lv_crop_w, lv_crop_h = 0, 0, frame_width, frame_height
 
 # initialise secundary and tertiary thread
 # 1
-face_tracker_thread = threading.Thread(target=face_tracker_thread, args=(frame_queue, result_queue, frame_width, frame_height))
-face_tracker_thread.start()
+face_tracker_threader = threading.Thread(target=face_tracker_thread, args=(frame_queue, result_queue, frame_width, frame_height))
+face_tracker_threader.start()
 # 2
-change_tracker_thread = threading.Thread(target=change_tracker_thread, args=(frame_queue2, status_queue))
-change_tracker_thread.start()
+change_tracker_threader = threading.Thread(target=change_tracker_thread, args=(frame_queue2, status_queue))
+change_tracker_threader.start()
+# 3
+ui_threader = threading.Thread(target=ui_thread, args=(root))
+ui_threader.start()
 
 # list to store faces and timer to reset it
 faces = []
@@ -686,20 +981,21 @@ status = 0
 
 # Initialize pyvirtualcam
 # with pyvirtualcam.Camera(width=frame_width, height=frame_height, fps=20, fourcc=544694642) as cam:          # not ready yet.... :(
-while True:
-    # update settings
-    settings = stt.get_settings()
+while running:
+    # save recources in standby
+    if standby: time.sleep(1)
 
     # Capture frame-by-frame
-    ret, frame = cap.read()
+    if not standby: 
+        ret, frame = cap.read()
     
-    if not ret:
-        print("Error: Could not read frame")
-        break
+        if not ret:
+            print("Error: Could not read frame")
+            break
 
     # Check if the worker thread is ready for a new frame 
     # and our minimum checking intervall has passed
-    if frame_queue.empty() and time.time() - last_face_check > min_face_check_intervall:
+    if frame_queue.empty() and time.time() - last_face_check > min_face_check_intervall and not standby:
         frame_queue.put(frame)
         last_face_check = time.time()
     
@@ -742,67 +1038,10 @@ while True:
     except: 
         print('Woups!')
         continue
-    
-
-    #################################
-    ### CHANGE MONITORING BELOW   ###
-    ################################
 
 
-
-    # degrade status
-    if time.time() - status_check > status_intervall and status > 0:
-        status -= 1
-        print(status)
-        status_check = time.time()
-
-    # pull status from queue
-    if not status_queue.empty():
-        status = status_queue.get()
-        status_queue.task_done()
-
-    # get second feed
-    if status > 0:
-        ret2, frame2 = cap2.read()
-        if not ret2:
-                print("Error: Could not read frame2")
-                continue
-
-    # Check if the worker thread is ready for a new frame 
-    # and our minimum checking intervall has passed
-    if frame_queue2.empty() and time.time() - last_change_check > min_check_intervall:
-        if status == 0: 
-            # Capture frame-by-frame
-            ret2, frame2 = cap2.read()
-            
-            if not ret2:
-                print("Error: Could not read frame2")
-                continue
-        
-
-        frame_queue2.put(frame2)
-        last_change_check = time.time()
-
-
-    # overlap frames, if necessary
-    if status >= 5:
-        frame = big_split(frame, frame2)
-    elif status > 0:
-        frame = small_split(frame, frame2)
-    else: frame = frame
-
-
-    # Push the processed frame to the virtual webcam
-    #cam.send(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-    #cam.sleep_until_next_frame()
-
-    # Display the window preview of finished frame
-    if settings['preview']: cv2.imshow('Preview', frame)           
-
-
-
-    # Display the resulting frame
-    if settings['tech-preview']: 
+    # Display the face-tracking preview
+    if tech_preview: 
         preview_frame = frame.copy()
         for face in faces:                          # this needs live kill switch
             x, y, w, h = face
@@ -810,13 +1049,96 @@ while True:
         cv2.rectangle(preview_frame, (lv_crop_x, lv_crop_y), (lv_crop_x + lv_crop_w, lv_crop_y + lv_crop_h), (0, 255, 0), 2)            # green rectangle for current ideal
         cv2.rectangle(preview_frame, (tg_crop_x, tg_crop_y), (tg_crop_x + tg_crop_w, tg_crop_y + tg_crop_h), (255, 168, 0), 2)          # cyan rectangle for target ideal
         cv2.rectangle(preview_frame, (crr_crop_x, crr_crop_y), (crr_crop_x + crr_crop_w, crr_crop_y + crr_crop_h), (0, 0, 255), 2)      # blue square
-        cv2.imshow('Preview', preview_frame)        
+        cv2.imshow('Tech-Preview', preview_frame)   
+
+
+    # make sure preview windows are closed if preview is toggled off
+    if tech_preview and not tech_preview_mem:
+        tech_preview_mem = True
+    elif not tech_preview and tech_preview_mem:
+        cv2.destroyWindow('Tech-Preview')
+        tech_preview_mem = False   
+    
+
+    #################################
+    ### CHANGE MONITORING BELOW   ###
+    ################################
+
+
+    if PiP and not standby:
+        # degrade status
+        if time.time() - status_check > status_intervall and status > 0:
+            status -= 1
+            print(status)
+            status_check = time.time()
+
+        # pull status from queue
+        if not status_queue.empty():
+            status = status_queue.get()
+            status_queue.task_done()
+
+        # get second feed
+        if status > 0:
+            ret2, frame2 = cap2.read()
+            if not ret2:
+                    print("Error: Could not read frame2")
+                    continue
+
+        # Check if the worker thread is ready for a new frame 
+        # and our minimum checking intervall has passed
+        if not standby and frame_queue2.empty() and time.time() - last_change_check > min_check_intervall:
+            if status == 0: 
+                # Capture frame-by-frame
+                ret2, frame2 = cap2.read()
+                
+                if not ret2:
+                    print("Error: Could not read frame2")
+                    continue
+            
+
+            frame_queue2.put(frame2)
+            last_change_check = time.time()
+
+
+        # overlap frames, if necessary
+        if status >= 5:
+            frame = big_split(frame, frame2)
+        elif status > 0:
+            frame = small_split(frame, frame2)
+        else: frame = frame
+
+    # alternative to PiP is the green-screen or chroma-key function
+    elif Chroma and not standby:
+        # get second frame
+        ret2, frame2 = cap2.read()
+        if not ret2:
+            print("Error: Could not read frame2")
+            continue
+
+        frame = chroma_key(frame, frame2, chroma_color)
+            
+            
+
+
+    # Push the processed frame to the virtual webcam
+    #cam.send(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+    #cam.sleep_until_next_frame()
+
+    # Display the window preview of finished frame
+    if preview: cv2.imshow('Preview', frame)    
+    
+    # make sure preview windows are closed if preview is toggled off
+    if preview and not preview_mem:
+        preview_mem = True
+    elif not preview and preview_mem:
+        cv2.destroyWindow('Preview')
+        preview_mem = False       
 
     
 
     # Press 'q' on the keyboard to exit the loop
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+    '''if cv2.waitKey(1) & 0xFF == ord('q'):
+        break'''
 
 # When everything is done, release the capture
 cap.release()

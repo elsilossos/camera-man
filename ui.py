@@ -36,7 +36,7 @@ def update_button_states():
 # Function to run the input-test.py script
 def run_input_test():
     print(os.getcwd())
-    #subprocess.Popen(["python3", os.path.join(os.getcwd(), "input-test.py")])
+    subprocess.Popen(["python3", os.path.join(os.getcwd(), "input-test.py")])
 
 # Function to run the main.py script
 def run_main_script():
