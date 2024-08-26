@@ -11,6 +11,10 @@ import tkinter as tk
 # input vars
 in1 = 1
 in2 = 0
+
+# default frame-ratio (will be updated in main)
+frame_width, frame_height = 1920, 1080
+
 # Load the pre-trained Haar cascade for face detection
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 # set up queues
@@ -25,6 +29,14 @@ root.title('Elia-Kameramann AI Kontrollpanel')
 
 # thread locking
 lock = threading.Lock()
+
+# face-tracking
+min_face_check_intervall = 0.5
+# change-checking
+min_check_intervall = 1
+# status-checking
+status_intervall = 1
+status = 0
 
 # UI vars
 PiP = False
@@ -842,6 +854,246 @@ def ui_thread(root):
 
 
 
+# this is the main-thread function that runs the core features, but needs to be off main because of UI
+def main():
+
+    # make global vars changeable
+    global trackers, zoom_coeff_h, last_change_check, status_check, status, frame_height, frame_width
+
+    # set control vars
+    tech_preview_mem = tech_preview
+
+    cap = cv2.VideoCapture(in1)
+    cap2 = cv2.VideoCapture(in2)
+
+    # Check if the camera opened successfully
+    if not cap.isOpened():
+        print("Error: Could not open video device")
+        exit()
+    if not cap2.isOpened():
+        print("Error: Could not open video device")
+        exit()
+
+    trackers = []
+
+
+    # Get the frame width and height
+    frame_width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+    frame_height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+    zoom_coeff_h = frame_height / 4
+    #zoom_coeff_w = frame_width
+    #print('Width: ', frame_width, '\nHeight: ', frame_height)
+
+    # set initial crops to max frame, both current (crr_crop) and target (tg_crop)
+    crr_crop_x, crr_crop_y, crr_crop_w, crr_crop_h = 0, 0, frame_width, frame_height
+    tg_crop_x, tg_crop_y, tg_crop_w, tg_crop_h = 0, 0, frame_width, frame_height
+    lv_crop_x, lv_crop_y, lv_crop_w, lv_crop_h = 0, 0, frame_width, frame_height
+
+
+
+    # start time on check intervalls
+    # face-tracking
+    last_face_check = time.time()
+    min_face_check_intervall = 0.5
+    # change-checking
+    last_change_check = time.time()
+    # status-checking
+    status_check = time.time()
+    status = 0
+
+    # list to store faces and timer to reset it
+    faces = []
+    empty_since = time.time() 
+
+    # Initialize pyvirtualcam
+    # with pyvirtualcam.Camera(width=frame_width, height=frame_height, fps=20, fourcc=544694642) as cam:                      !!! webcam-out
+    while True:
+        # save recources in standby
+        if standby: 
+            time.sleep(1)
+            continue
+
+        # Capture frame-by-frame
+        ret, frame = cap.read()
+    
+        if not ret:
+            print("Error: Could not read frame")
+            break
+        
+
+        ### FACE  TRACKING ###
+        if face_tracking:
+            # Check if the worker thread is ready for a new frame 
+            # and our minimum checking intervall has passed
+            if frame_queue.empty() and time.time() - last_face_check > min_face_check_intervall:
+                frame_queue.put(frame)
+                last_face_check = time.time()
+            
+            # Check if there's a result from the worker thread
+            if not result_queue.empty():
+                faces = result_queue.get_nowait()
+                empty_since = time.time()
+
+            # reset faces to empty if there were no face detections for 3 seconds. 
+            if time.time() - empty_since > 5: faces = []
+
+            # calculate the frame if there is faces in the frame  
+            if len(faces) > 0: 
+                # calculate the cropping based on the current faces results
+                lv_crop_x, lv_crop_y, lv_crop_w, lv_crop_h = mk_crop_target(faces, aspectR_w=frame_width, aspectR_h=frame_height)
+                
+
+            # reset the frame to max view if there are no faces
+            else: 
+                #crr_crop_x, crr_crop_y, crr_crop_w, crr_crop_h = 0, 0, frame_width, frame_height
+                tg_crop_x, tg_crop_y, tg_crop_w, tg_crop_h = 0, 0, frame_width, frame_height
+                lv_crop_x, lv_crop_y, lv_crop_w, lv_crop_h = 0, 0, frame_width, frame_height
+                
+
+            # calculate the target (tg_crop) with crop_desc(). Should often stay static.
+            tg_crop_x, tg_crop_y, tg_crop_w, tg_crop_h = crop_dscn(
+                        crr_crop=[tg_crop_x, tg_crop_y, tg_crop_w, tg_crop_h], 
+                        lv_crop= [lv_crop_x, lv_crop_y, lv_crop_w, lv_crop_h])
+            
+            
+            # paint based on crop_target by passing crop_desc() into cameraman(), updating crr_crop-values
+            crr_crop_x, crr_crop_y, crr_crop_w, crr_crop_h = cameraman(
+                crr_crop=[crr_crop_x, crr_crop_y, crr_crop_w, crr_crop_h],
+                tg_crop=[tg_crop_x, tg_crop_y, tg_crop_w, tg_crop_h])
+
+        else:
+            # turn off tech preview if running.
+            if tech_preview:
+                tech_preview = not tech_preview
+            # also reset target to max
+            tg_crop_x, tg_crop_y, tg_crop_w, tg_crop_h = 0, 0, frame_width, frame_height                        # !!! save recources by bypassing this after it zoomed back into place
+            lv_crop_x, lv_crop_y, lv_crop_w, lv_crop_h = 0, 0, frame_width, frame_height                        # !!! save recources by bypassing this after it zoomed back into place
+
+        # paint based on crop_target by passing crop_desc() into cameraman(), updating crr_crop-values 
+        # (out of condition so it softly zooms out after turned off again.)
+        crr_crop_x, crr_crop_y, crr_crop_w, crr_crop_h = cameraman(
+            crr_crop=[crr_crop_x, crr_crop_y, crr_crop_w, crr_crop_h],
+            tg_crop=[tg_crop_x, tg_crop_y, tg_crop_w, tg_crop_h])                       # !!! save recources by bypassing this after it zoomed back into place
+        
+        # finally do the zoom (out of condition so it softly zooms out after turned off again.)
+        try: frame = zoom(frame, crr_crop_x, crr_crop_y, crr_crop_w, crr_crop_h)        # !!! save recources by bypassing this after it zoomed back into place
+        except: 
+            print('Woups!')
+            continue
+
+
+        # Display the face-tracking preview
+        if tech_preview: 
+            preview_frame = frame.copy()
+            for face in faces:                          # this needs live kill switch
+                x, y, w, h = face
+                cv2.rectangle(preview_frame, (x, y), (x + w, y + h), (255, 0, 0), 2)    # blue square for faces
+            cv2.rectangle(preview_frame, (lv_crop_x, lv_crop_y), (lv_crop_x + lv_crop_w, lv_crop_y + lv_crop_h), (0, 255, 0), 2)            # green rectangle for current ideal
+            cv2.rectangle(preview_frame, (tg_crop_x, tg_crop_y), (tg_crop_x + tg_crop_w, tg_crop_y + tg_crop_h), (255, 168, 0), 2)          # cyan rectangle for target ideal
+            cv2.rectangle(preview_frame, (crr_crop_x, crr_crop_y), (crr_crop_x + crr_crop_w, crr_crop_y + crr_crop_h), (0, 0, 255), 2)      # blue square
+            cv2.imshow('Tech-Preview', preview_frame)   
+
+
+        # make sure preview windows are closed if preview is toggled off
+        if tech_preview and not tech_preview_mem:
+            tech_preview_mem = True
+        elif not tech_preview and tech_preview_mem:
+            cv2.destroyWindow('Tech-Preview')
+            tech_preview_mem = False   
+        
+
+        #################################
+        ### CHANGE MONITORING BELOW   ###
+        ################################
+
+
+        if PiP:
+            # degrade status
+            if time.time() - status_check > status_intervall and status > 0:
+                status -= 1
+                print(status)
+                status_check = time.time()
+
+            # pull status from queue
+            if not status_queue.empty():
+                status = status_queue.get()
+                status_queue.task_done()
+
+            # get second feed
+            if status > 0:
+                ret2, frame2 = cap2.read()
+                if not ret2:
+                        print("Error: Could not read frame2")
+                        continue
+
+            # Check if the worker thread is ready for a new frame 
+            # and our minimum checking intervall has passed
+            if frame_queue2.empty() and time.time() - last_change_check > min_check_intervall:
+                if status == 0: 
+                    # Capture frame-by-frame
+                    ret2, frame2 = cap2.read()
+                    
+                    if not ret2:
+                        print("Error: Could not read frame2")
+                        continue
+                
+
+                frame_queue2.put(frame2)
+                last_change_check = time.time()
+
+
+            # overlap frames, if necessary
+            if status >= 5:
+                frame = big_split(frame, frame2)
+            elif status > 0:
+                frame = small_split(frame, frame2)
+            else: frame = frame
+
+        # alternative to PiP is the green-screen or chroma-key function
+        elif Chroma:
+            # get second frame
+            ret2, frame2 = cap2.read()
+            if not ret2:
+                print("Error: Could not read frame2")
+                continue
+
+            frame = chroma_key(frame, frame2, chroma_color)
+                
+                
+
+
+        # Push the processed frame to the virtual webcam            !!! webcam-out
+        #cam.send(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))            !!! webcam-out
+        #cam.sleep_until_next_frame()                             !!! webcam-out
+
+        # Display the window preview of finished frame
+        if preview: cv2.imshow('Preview', frame)    
+        
+        # make sure preview windows are closed if preview is toggled off
+        if preview and not preview_mem:
+            preview_mem = True
+        elif not preview and preview_mem:
+            cv2.destroyWindow('Preview')
+            preview_mem = False       
+
+        
+
+
+        # Press 'q' on the keyboard to exit the loop
+        '''if cv2.waitKey(1) & 0xFF == ord('q'):
+            break'''
+        
+
+        # check if to break
+        with lock:
+            if not running: break
+
+    # When everything is done, release the capture
+    cap.release()
+    cap2.release()
+    cv2.destroyAllWindows()
+
+
 
 
 
@@ -925,7 +1177,7 @@ tech_preview_btn.grid(column=2, columnspan=1, row=5)
 
 
 
-# Open a connection to the default camera (camera 0)
+'''# Open a connection to the default camera (camera 0)
 cap = cv2.VideoCapture(in1)
 cap2 = cv2.VideoCapture(in2)
 
@@ -950,200 +1202,69 @@ zoom_coeff_h = frame_height / 4
 # set initial crops to max frame, both current (crr_crop) and target (tg_crop)
 crr_crop_x, crr_crop_y, crr_crop_w, crr_crop_h = 0, 0, frame_width, frame_height
 tg_crop_x, tg_crop_y, tg_crop_w, tg_crop_h = 0, 0, frame_width, frame_height
-lv_crop_x, lv_crop_y, lv_crop_w, lv_crop_h = 0, 0, frame_width, frame_height
+lv_crop_x, lv_crop_y, lv_crop_w, lv_crop_h = 0, 0, frame_width, frame_height'''
 
 # initialise secundary and tertiary thread
 # 1
 face_tracker_threader = threading.Thread(target=face_tracker_thread, args=(frame_queue, result_queue, frame_width, frame_height))
 face_tracker_threader.start()
+face_tracker_threader.daemon = True
 # 2
 change_tracker_threader = threading.Thread(target=change_tracker_thread, args=(frame_queue2, status_queue))
 change_tracker_threader.start()
+change_tracker_threader.daemon = True
 # 3
-ui_threader = threading.Thread(target=ui_thread, args=(root))
-ui_threader.start()
+main_thread = threading.Thread(target=main, args=())
+main_thread.start()
+main_thread.daemon = True
 
-# list to store faces and timer to reset it
-faces = []
-empty_since = time.time() 
 
-# start time on check intervalls
+
+
 # face-tracking
-last_face_check = time.time()
 min_face_check_intervall = 0.5
 # change-checking
-last_change_check = time.time()
 min_check_intervall = 1
 # status-checking
-status_check = time.time()
 status_intervall = 1
 status = 0
 
-# Initialize pyvirtualcam
-# with pyvirtualcam.Camera(width=frame_width, height=frame_height, fps=20, fourcc=544694642) as cam:          # not ready yet.... :(
-while running:
-    # save recources in standby
-    if standby: time.sleep(1)
-
-    # Capture frame-by-frame
-    if not standby: 
-        ret, frame = cap.read()
-    
-        if not ret:
-            print("Error: Could not read frame")
-            break
-
-    # Check if the worker thread is ready for a new frame 
-    # and our minimum checking intervall has passed
-    if frame_queue.empty() and time.time() - last_face_check > min_face_check_intervall and not standby:
-        frame_queue.put(frame)
-        last_face_check = time.time()
-    
-    # Check if there's a result from the worker thread
-    if not result_queue.empty():
-        faces = result_queue.get_nowait()
-        empty_since = time.time()
-
-    # reset faces to empty if there were no face detections for 3 seconds. 
-    if time.time() - empty_since > 5: faces = []
-
-    
-
-    # calculate the frame if there is faces in the frame  
-    if len(faces) > 0: 
-        # calculate the cropping based on the current faces results
-        lv_crop_x, lv_crop_y, lv_crop_w, lv_crop_h = mk_crop_target(faces, aspectR_w=frame_width, aspectR_h=frame_height)
-        
-
-    # reset the frame to max view if there are no faces
-    else: 
-        #crr_crop_x, crr_crop_y, crr_crop_w, crr_crop_h = 0, 0, frame_width, frame_height
-        tg_crop_x, tg_crop_y, tg_crop_w, tg_crop_h = 0, 0, frame_width, frame_height
-        lv_crop_x, lv_crop_y, lv_crop_w, lv_crop_h = 0, 0, frame_width, frame_height
-        
-
-    # calculate the target (tg_crop) with crop_desc(). Should often stay static.
-    tg_crop_x, tg_crop_y, tg_crop_w, tg_crop_h = crop_dscn(
-                crr_crop=[tg_crop_x, tg_crop_y, tg_crop_w, tg_crop_h], 
-                lv_crop= [lv_crop_x, lv_crop_y, lv_crop_w, lv_crop_h])
-    
-    
-    # paint based on crop_target by passing crop_desc() into cameraman(), updating crr_crop-values
-    crr_crop_x, crr_crop_y, crr_crop_w, crr_crop_h = cameraman(
-        crr_crop=[crr_crop_x, crr_crop_y, crr_crop_w, crr_crop_h],
-        tg_crop=[tg_crop_x, tg_crop_y, tg_crop_w, tg_crop_h])
-    
-    # finally do the zoom
-    try: frame = zoom(frame, crr_crop_x, crr_crop_y, crr_crop_w, crr_crop_h)
-    except: 
-        print('Woups!')
-        continue
 
 
-    # Display the face-tracking preview
-    if tech_preview: 
-        preview_frame = frame.copy()
-        for face in faces:                          # this needs live kill switch
-            x, y, w, h = face
-            cv2.rectangle(preview_frame, (x, y), (x + w, y + h), (255, 0, 0), 2)    # blue square for faces
-        cv2.rectangle(preview_frame, (lv_crop_x, lv_crop_y), (lv_crop_x + lv_crop_w, lv_crop_y + lv_crop_h), (0, 255, 0), 2)            # green rectangle for current ideal
-        cv2.rectangle(preview_frame, (tg_crop_x, tg_crop_y), (tg_crop_x + tg_crop_w, tg_crop_y + tg_crop_h), (255, 168, 0), 2)          # cyan rectangle for target ideal
-        cv2.rectangle(preview_frame, (crr_crop_x, crr_crop_y), (crr_crop_x + crr_crop_w, crr_crop_y + crr_crop_h), (0, 0, 255), 2)      # blue square
-        cv2.imshow('Tech-Preview', preview_frame)   
 
 
-    # make sure preview windows are closed if preview is toggled off
-    if tech_preview and not tech_preview_mem:
-        tech_preview_mem = True
-    elif not tech_preview and tech_preview_mem:
-        cv2.destroyWindow('Tech-Preview')
-        tech_preview_mem = False   
-    
-
-    #################################
-    ### CHANGE MONITORING BELOW   ###
-    ################################
 
 
-    if PiP and not standby:
-        # degrade status
-        if time.time() - status_check > status_intervall and status > 0:
-            status -= 1
-            print(status)
-            status_check = time.time()
-
-        # pull status from queue
-        if not status_queue.empty():
-            status = status_queue.get()
-            status_queue.task_done()
-
-        # get second feed
-        if status > 0:
-            ret2, frame2 = cap2.read()
-            if not ret2:
-                    print("Error: Could not read frame2")
-                    continue
-
-        # Check if the worker thread is ready for a new frame 
-        # and our minimum checking intervall has passed
-        if not standby and frame_queue2.empty() and time.time() - last_change_check > min_check_intervall:
-            if status == 0: 
-                # Capture frame-by-frame
-                ret2, frame2 = cap2.read()
-                
-                if not ret2:
-                    print("Error: Could not read frame2")
-                    continue
-            
-
-            frame_queue2.put(frame2)
-            last_change_check = time.time()
 
 
-        # overlap frames, if necessary
-        if status >= 5:
-            frame = big_split(frame, frame2)
-        elif status > 0:
-            frame = small_split(frame, frame2)
-        else: frame = frame
-
-    # alternative to PiP is the green-screen or chroma-key function
-    elif Chroma and not standby:
-        # get second frame
-        ret2, frame2 = cap2.read()
-        if not ret2:
-            print("Error: Could not read frame2")
-            continue
-
-        frame = chroma_key(frame, frame2, chroma_color)
-            
-            
 
 
-    # Push the processed frame to the virtual webcam
-    #cam.send(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-    #cam.sleep_until_next_frame()
 
-    # Display the window preview of finished frame
-    if preview: cv2.imshow('Preview', frame)    
-    
-    # make sure preview windows are closed if preview is toggled off
-    if preview and not preview_mem:
-        preview_mem = True
-    elif not preview and preview_mem:
-        cv2.destroyWindow('Preview')
-        preview_mem = False       
+# UI maintread
+root.mainloop()
 
-    
 
-    # Press 'q' on the keyboard to exit the loop
-    '''if cv2.waitKey(1) & 0xFF == ord('q'):
-        break'''
 
-# When everything is done, release the capture
-cap.release()
-cap2.release()
-cv2.destroyAllWindows()
+
+
+
+
+
+
+
+
+
+# send kill notes to change and face tracker threads
 frame_queue.put(None)
 frame_queue2.put(None)
+
+# wait for each of the threads to complete for 3 secs ... after that they die a deamon's death!
+face_tracker_threader.join(timeout=3)
+change_tracker_threader.join(3)
+main_thread.join(3)
+
+# ... after that they die a deamon's death!
+exit() 
+
+
 
