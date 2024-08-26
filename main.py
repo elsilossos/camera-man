@@ -43,8 +43,7 @@ PiP = False
 Chroma = False
 standby = True
 running = True
-tech_preview = False    
-tech_preview_mem = False                         
+tech_preview = False                         
 preview = True
 preview_mem = True
 chroma_color = [0,0,0]
@@ -112,7 +111,7 @@ def update_Chroma_btn():
 def PiP_Chroma_off():
     global PiP, Chroma
     with lock:
-        PiP, Chroma = False 
+        PiP, Chroma = False, False
 
     update_PiP_btn()
     update_Chroma_btn()
@@ -142,7 +141,7 @@ def toggle_standby():
             standby = False
         else: 
             standby = True
-            preview, tech_preview = False
+            preview, tech_preview = False, False
     
     update_standby_btn()
 
@@ -182,7 +181,7 @@ def toggle_preview():
 
 def update_preview_btn():
     if preview:
-        preview_btn.config(bg='red', fg='while', text='Vorschaufenster ausschalten')
+        preview_btn.config(bg='red', fg='white', text='Vorschaufenster ausschalten')
     else:
         preview_btn.config(bg='grey', fg='black', text='Vorschaufenster einschalten')
 
@@ -858,7 +857,7 @@ def ui_thread(root):
 def main():
 
     # make global vars changeable
-    global trackers, zoom_coeff_h, last_change_check, status_check, status, frame_height, frame_width
+    global trackers, zoom_coeff_h, last_change_check, status_check, status, frame_height, frame_width, tech_preview
 
     # set control vars
     tech_preview_mem = tech_preview
@@ -1207,16 +1206,16 @@ lv_crop_x, lv_crop_y, lv_crop_w, lv_crop_h = 0, 0, frame_width, frame_height'''
 # initialise secundary and tertiary thread
 # 1
 face_tracker_threader = threading.Thread(target=face_tracker_thread, args=(frame_queue, result_queue, frame_width, frame_height))
-face_tracker_threader.start()
 face_tracker_threader.daemon = True
+face_tracker_threader.start()
 # 2
 change_tracker_threader = threading.Thread(target=change_tracker_thread, args=(frame_queue2, status_queue))
-change_tracker_threader.start()
 change_tracker_threader.daemon = True
+change_tracker_threader.start()
 # 3
 main_thread = threading.Thread(target=main, args=())
-main_thread.start()
 main_thread.daemon = True
+main_thread.start()
 
 
 
