@@ -39,9 +39,9 @@ else:
 
 print('UI launched.')
 
-print(input())
+#print(input())
 
-exit() 
+#exit() 
 #################################
 #################################
 #################################
@@ -641,6 +641,80 @@ def small_split(frame1, frame2, margin=10, pc_size = 0.3):
 
 
 
+# Chroma Key function
+def chroma_key(background, foreground, key_color=(0, 255, 0), tolerance=60):
+    """
+    Applies a chroma key effect with foreground resized to match the aspect ratio of the background.
+    
+    :param background: The background frame (OpenCV image).
+    :param foreground: The foreground frame (OpenCV image).
+    :param key_color: The color to be replaced (e.g., green).
+    :param tolerance: The tolerance for color matching.
+    :return: The combined frame with the chroma key applied.
+    """
+    # Get dimensions of background and foreground
+    bg_h, bg_w = background.shape[:2]
+    fg_h, fg_w = foreground.shape[:2]
+
+    # Calculate scaling factor to match aspect ratios
+    bg_aspect = bg_w / bg_h
+    fg_aspect = fg_w / fg_h
+
+    if fg_aspect > bg_aspect:  # Foreground is wider
+        new_fg_w = bg_w
+        new_fg_h = int(bg_w / fg_aspect)
+    else:  # Foreground is taller
+        new_fg_h = bg_h
+        new_fg_w = int(bg_h * fg_aspect)
+
+    # Resize the foreground
+    resized_foreground = cv2.resize(foreground, (new_fg_w, new_fg_h))
+
+    # Add padding to resized foreground to fit the background's dimensions
+    top = (bg_h - new_fg_h) // 2
+    bottom = bg_h - new_fg_h - top
+    left = (bg_w - new_fg_w) // 2
+    right = bg_w - new_fg_w - left
+
+    padded_foreground = cv2.copyMakeBorder(
+        resized_foreground, top, bottom, left, right, cv2.BORDER_CONSTANT, value=(0, 0, 0)
+    )
+
+    # Convert the key color to a numpy array for easy manipulation
+    key_color = np.array(key_color)
+
+    # Create a mask based on the key color with some tolerance
+    lower_bound = key_color - tolerance
+    upper_bound = key_color + tolerance
+
+    # Ensure the bounds are within valid color ranges
+    lower_bound = np.clip(lower_bound, 0, 255)
+    upper_bound = np.clip(upper_bound, 0, 255)
+
+    # Create the mask: pixels that match the key color will be white (1), others black (0)
+    mask = cv2.inRange(padded_foreground, lower_bound, upper_bound)
+
+    # Ensure the mask is a single channel and has the same size as the original frames
+    mask = mask.astype(np.uint8)
+
+    # Invert the mask to get the region where the foreground should be visible
+    inverted_mask = cv2.bitwise_not(mask)
+
+    # Extract the regions where the foreground is visible (where the mask is inverted)
+    foreground_with_mask = cv2.bitwise_and(padded_foreground, padded_foreground, mask=inverted_mask)
+
+    # Extract the regions where the background should be visible (where the mask is present)
+    background_with_mask = cv2.bitwise_and(background, background, mask=mask)
+
+    # Combine the two frames
+    combined_frame = cv2.add(foreground_with_mask, background_with_mask)
+
+    return combined_frame
+
+
+
+
+
 
 
 
@@ -668,7 +742,9 @@ def small_split(frame1, frame2, margin=10, pc_size = 0.3):
 
 # Open a connection to the default camera (camera 0)
 cap = cv2.VideoCapture(0)
+print('Cam 1 running')
 cap2 = cv2.VideoCapture(1)
+print('Cam 2 running')
 
 # Check if the camera opened successfully
 if not cap.isOpened():
@@ -717,11 +793,17 @@ status_check = time.time()
 status_intervall = 1
 status = 0
 
+settings = load_settings()
+print(settings)
+debug_timer = time.time()
 # Initialize pyvirtualcam
 # with pyvirtualcam.Camera(width=frame_width, height=frame_height, fps=20, fourcc=544694642) as cam:          # not ready yet.... :(
-while True:
+while settings['running']:
+    if time.time() - debug_timer > 1:
+        print('check')
+        debug_timer = time.time()
     # update settings
-    settings = stt.get_settings()
+    settings = load_settings()
 
     # Capture frame-by-frame
     ret, frame = cap.read()
@@ -732,7 +814,8 @@ while True:
 
     # Check if the worker thread is ready for a new frame 
     # and our minimum checking intervall has passed
-    if frame_queue.empty() and time.time() - last_face_check > min_face_check_intervall:
+    # only feed if auto-zoom is activated
+    if frame_queue.empty() and time.time() - last_face_check > min_face_check_intervall and settings['Automatischer Zoom']:
         frame_queue.put(frame)
         last_face_check = time.time()
     
@@ -741,7 +824,7 @@ while True:
         faces = result_queue.get_nowait()
         empty_since = time.time()
 
-    # reset faces to empty if there were no face detections for 3 seconds. 
+    # reset faces to empty if there were no face detections for 5 seconds. 
     if time.time() - empty_since > 5: faces = []
 
     
@@ -779,9 +862,7 @@ while True:
 
     #################################
     ### CHANGE MONITORING BELOW   ###
-    ################################
-
-
+    #################################
 
     # degrade status
     if time.time() - status_check > status_intervall and status > 0:
@@ -789,51 +870,62 @@ while True:
         print(status)
         status_check = time.time()
 
-    # pull status from queue
-    if not status_queue.empty():
-        status = status_queue.get()
-        status_queue.task_done()
+    if not settings['chroma-key']:
+        if settings['Auto-Bild-in-Bild']:
+            
+            # pull status from queue
+            if not status_queue.empty():
+                status = status_queue.get()
+                status_queue.task_done()
 
-    # get second feed
-    if status > 0:
+            # get second feed
+            if status > 0:
+                ret2, frame2 = cap2.read()
+                if not ret2:
+                        print("Error: Could not read frame2")
+                        continue
+
+            # Check if the worker thread is ready for a new frame 
+            # and our minimum checking intervall has passed
+            if frame_queue2.empty() and time.time() - last_change_check > min_check_intervall:
+                if status == 0: 
+                    # Capture frame-by-frame
+                    ret2, frame2 = cap2.read()
+                    
+                    if not ret2:
+                        print("Error: Could not read frame2")
+                        continue
+                
+
+                frame_queue2.put(frame2)
+                last_change_check = time.time()
+
+        elif settings['gross-Bild-in-Bild']: status = 10
+        elif settings['klein-Bild-in-Bild']: status = 4
+
+        # overlap frames, if necessary
+        if status >= 5:
+            frame = big_split(frame, frame2)
+        elif status > 0:
+            frame = small_split(frame, frame2)
+        else: frame = frame
+
+    else:
         ret2, frame2 = cap2.read()
         if not ret2:
                 print("Error: Could not read frame2")
                 continue
-
-    # Check if the worker thread is ready for a new frame 
-    # and our minimum checking intervall has passed
-    if frame_queue2.empty() and time.time() - last_change_check > min_check_intervall:
-        if status == 0: 
-            # Capture frame-by-frame
-            ret2, frame2 = cap2.read()
-            
-            if not ret2:
-                print("Error: Could not read frame2")
-                continue
-        
-
-        frame_queue2.put(frame2)
-        last_change_check = time.time()
-
-
-    # overlap frames, if necessary
-    if status >= 5:
-        frame = big_split(frame, frame2)
-    elif status > 0:
-        frame = small_split(frame, frame2)
-    else: frame = frame
-
+        frame = chroma_key(background=frame, foreground=frame2, key_color=(0,0,0))
 
     # Push the processed frame to the virtual webcam
     #cam.send(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
     #cam.sleep_until_next_frame()
 
     # Display the window preview of finished frame
-    if settings['preview']: cv2.imshow('Preview', frame)           
+    cv2.imshow('Preview', frame)           
 
 
-
+    '''
     # Display the resulting frame
     if settings['tech-preview']: 
         preview_frame = frame.copy()
@@ -843,13 +935,16 @@ while True:
         cv2.rectangle(preview_frame, (lv_crop_x, lv_crop_y), (lv_crop_x + lv_crop_w, lv_crop_y + lv_crop_h), (0, 255, 0), 2)            # green rectangle for current ideal
         cv2.rectangle(preview_frame, (tg_crop_x, tg_crop_y), (tg_crop_x + tg_crop_w, tg_crop_y + tg_crop_h), (255, 168, 0), 2)          # cyan rectangle for target ideal
         cv2.rectangle(preview_frame, (crr_crop_x, crr_crop_y), (crr_crop_x + crr_crop_w, crr_crop_y + crr_crop_h), (0, 0, 255), 2)      # blue square
-        cv2.imshow('Preview', preview_frame)        
+        cv2.imshow('Preview', preview_frame)  '''      
 
     
 
     # Press 'q' on the keyboard to exit the loop
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
+
+    # Call settings to check if still running
+    settings = load_settings()
 
 # When everything is done, release the capture
 cap.release()

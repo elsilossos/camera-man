@@ -55,20 +55,8 @@ root.geometry("400x300")
 # Dictionary to hold button references
 buttons = {}
 
-# List of settings
-settings_list = [
-    "Automatischer Zoom",
-    "Auto-Bild-in-Bild",
-]
-
 #initialise settings:
-save_settings({"running": True, "Automatischer Zoom": False, "Auto-Bild-in-Bild": False, "gross-Bild-in-Bild": False, "klein-Bild-in-Bild": False})
-
-# Create buttons for each setting
-'''for setting in settings_list:
-    btn = tk.Button(root, text=setting, width=20, command=lambda s=setting: toggle_setting(s))
-    btn.pack(pady=5)
-    buttons[setting] = btn'''
+save_settings({"running": True, "Automatischer Zoom": False, "Auto-Bild-in-Bild": False, "gross-Bild-in-Bild": False, "klein-Bild-in-Bild": False, "chroma-key": False})
 
 # Create buttons to run the scripts
 #input_test_button = tk.Button(root, text="Run Input Test", width=20, command=run_input_test)
@@ -80,10 +68,12 @@ save_settings({"running": True, "Automatischer Zoom": False, "Auto-Bild-in-Bild"
 def auto_zoom_func():
     toggle_setting('Automatischer Zoom')
     settings = load_settings()
-    if settings['Automatischer Zoom'] == False:
-        auto_switch_botton.config(text='Auto-Zoom einschalten', foreground='white', background='green')
-    else: auto_switch_botton.config(text='Auto-Zoom ausschalten', foreground='white', background='red')
-    update_button_states()
+    if settings['Automatischer Zoom'] == False: pass
+        #auto_switch_botton.config(text='Auto-Zoom einschalten', foreground='white', background='green')
+    else: 
+        #auto_switch_botton.config(text='Auto-Zoom ausschalten', foreground='white', background='red')
+        pass
+    #update_button_states()
 
 auto_zoom_button = tk.Button(root, text='Auto-Zoom einschalten', width=20, command=auto_zoom_func)
 auto_zoom_button.pack(pady=10)
@@ -93,16 +83,17 @@ def auto_switch_func():
     settings = load_settings()
     if not settings["Auto-Bild-in-Bild"]:
         settings["Auto-Bild-in-Bild"] = True
-        auto_switch_botton.config(text='Auto-BiB ausschalten', foreground='white', background='red')
+        #auto_switch_botton.config(text='Auto-BiB ausschalten', foreground='white', background='red')
         settings["gross-Bild-in-Bild"] = False
-        big_switch_botton.config(text='grosses BiB einschalten', foreground='white', background='green')
+        #big_switch_botton.config(text='grosses BiB einschalten', foreground='white', background='green')
         settings["klein-Bild-in-Bild"] = False
-        small_switch_botton.config(text='Kleines BiB einschalten', foreground='white', background='green')
+        #small_switch_botton.config(text='Kleines BiB einschalten', foreground='white', background='green')
+        settings["Chroma-key"] = False
     else:
         settings["Auto-Bild-in-Bild"] = False
-        auto_switch_botton.config(text='Auto-BiB einschalten', foreground='white', background='green')
+        #auto_switch_botton.config(text='Auto-BiB einschalten', foreground='white', background='green')
     save_settings(settings)
-    update_button_states()
+    #update_button_states()
 
 auto_switch_botton = tk.Button(root, text='Auto-Bild-in-Bild einschalten', width=20, command=auto_switch_func)
 auto_switch_botton.pack(pady=10)
@@ -112,16 +103,17 @@ def big_switch_func():
     settings = load_settings()
     if not settings["gross-Bild-in-Bild"]:
         settings["Auto-Bild-in-Bild"] = False
-        auto_switch_botton.config(text='Auto-BiB einschalten', foreground='white', background='green')
+        #auto_switch_botton.config(text='Auto-BiB einschalten', foreground='white', background='green')
         settings["gross-Bild-in-Bild"] = True
-        big_switch_botton.config(text='grosses BiB ausschalten', foreground='white', background='red')
+        #big_switch_botton.config(text='grosses BiB ausschalten', foreground='white', background='red')
         settings["klein-Bild-in-Bild"] = False
-        small_switch_botton.config(text='Kleines BiB einschalten', foreground='white', background='green')
+        #small_switch_botton.config(text='Kleines BiB einschalten', foreground='white', background='green')
+        settings["Chroma-key"] = False
     else:
         settings["gross-Bild-in-Bild"] = False
-        big_switch_botton.config(text='grosses BiB einschalten', foreground='white', background='green')
+        #big_switch_botton.config(text='grosses BiB einschalten', foreground='white', background='green')
     save_settings(settings)
-    update_button_states()
+    #update_button_states()
 
 big_switch_botton = tk.Button(root, text='grosses Bild-in-Bild einschalten', width=20, command=big_switch_func)
 big_switch_botton.pack(pady=10)
@@ -131,22 +123,45 @@ def small_switch_func():
     settings = load_settings()
     if not settings["klein-Bild-in-Bild"]:
         settings["Auto-Bild-in-Bild"] = False
-        auto_switch_botton.config(text='Auto-BiB einschalten', foreground='white', background='green')
+        #auto_switch_botton.config(text='Auto-BiB einschalten', foreground='white', background='green')
         settings["gross-Bild-in-Bild"] = False
-        big_switch_botton.config(text='grosses BiB einschalten', foreground='white', background='green')
+        #big_switch_botton.config(text='grosses BiB einschalten', foreground='white', background='green')
         settings["klein-Bild-in-Bild"] = True
-        small_switch_botton.config(text='Kleines BiB ausschalten', foreground='white', background='red')
+        #small_switch_botton.config(text='Kleines BiB ausschalten', foreground='white', background='red')
+        settings["Chroma-key"] = False
     else:
         settings["klein-Bild-in-Bild"] = False
-        big_switch_botton.config(text='Kleines BiB einschalten', foreground='white', background='green')
+        #big_switch_botton.config(text='Kleines BiB einschalten', foreground='white', background='green')
     save_settings(settings)
-    update_button_states()
+    #update_button_states()
 
 small_switch_botton = tk.Button(root, text='Kleines Bild-in-Bild einschalten', width=20, command=small_switch_func)
 small_switch_botton.pack(pady=10)
 
+
+# button for chroma-key control:
+# change value and style for small pip and the other variants
+def cc_butt_switch_func():
+    settings = load_settings()
+    if not settings["chroma-key"]:
+        settings["Auto-Bild-in-Bild"] = False
+        #auto_switch_botton.config(text='Auto-BiB einschalten', foreground='white', background='green')
+        settings["gross-Bild-in-Bild"] = False
+        #big_switch_botton.config(text='grosses BiB einschalten', foreground='white', background='green')
+        settings["klein-Bild-in-Bild"] = False
+        #small_switch_botton.config(text='Kleines BiB ausschalten', foreground='white', background='red')
+        settings["chroma-key"] = True
+    else:
+        settings["Chroma-key"] = False
+        #big_switch_botton.config(text='Kleines BiB einschalten', foreground='white', background='green')
+    save_settings(settings)
+    #update_button_states()
+
+cc_botton = tk.Button(root, text='Chroma-Key', width=20, command=cc_butt_switch_func)
+cc_botton.pack(pady=10)
+
 # Initialize the button states
-update_button_states()
+#update_button_states()
 
 # Set the behavior when the window is closed
 root.protocol("WM_DELETE_WINDOW", on_close)
