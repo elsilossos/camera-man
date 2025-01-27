@@ -1,9 +1,8 @@
 {
     "running": false,
-    "Automatischer Zoom": true,
+    "Automatischer Zoom": false,
     "Auto-Bild-in-Bild": false,
     "gross-Bild-in-Bild": false,
     "klein-Bild-in-Bild": false,
-    "chroma-key": true,
-    "Chroma-key": false
+    "chroma-key": false
 }
