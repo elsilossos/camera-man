@@ -25,13 +25,11 @@ def toggle_setting(setting_name):
     settings = load_settings()
     settings[setting_name] = not settings.get(setting_name, False)
     save_settings(settings)
-    update_button_states()
+    #update_button_states()
 
 # Function to update button states
 def update_button_states():
-    settings = load_settings()
-    for setting, button in buttons.items():
-        button.config(relief=tk.SUNKEN if settings.get(setting, False) else tk.RAISED)
+    root.update_idletasks()
 
 # Function to run the input-test.py script
 def run_input_test():
@@ -41,6 +39,13 @@ def run_input_test():
 # Function to run the main.py script
 def run_main_script():
     subprocess.Popen(["python3", os.path.normpath(os.getcwd(), "main.py")])
+
+# Function that runs upon closing the ui window
+def on_close():
+    print("Window closed! Running cleanup code...")
+    toggle_setting('running')
+    root.destroy()  # Make sure to call `destroy()` to close the window
+
 
 # Create the main application window
 root = tk.Tk()
@@ -52,29 +57,99 @@ buttons = {}
 
 # List of settings
 settings_list = [
-    "tech-preview",
-    "preview",
-    "web-cam-out",
-    "input-test",
-    "auto-zoom",
-    "auto-switch"
+    "Automatischer Zoom",
+    "Auto-Bild-in-Bild",
 ]
 
+#initialise settings:
+save_settings({"running": True, "Automatischer Zoom": False, "Auto-Bild-in-Bild": False, "gross-Bild-in-Bild": False, "klein-Bild-in-Bild": False})
+
 # Create buttons for each setting
-for setting in settings_list:
+'''for setting in settings_list:
     btn = tk.Button(root, text=setting, width=20, command=lambda s=setting: toggle_setting(s))
     btn.pack(pady=5)
-    buttons[setting] = btn
+    buttons[setting] = btn'''
 
 # Create buttons to run the scripts
-input_test_button = tk.Button(root, text="Run Input Test", width=20, command=run_input_test)
-input_test_button.pack(pady=10)
+#input_test_button = tk.Button(root, text="Run Input Test", width=20, command=run_input_test)
+#input_test_button.pack(pady=10)
 
-main_script_button = tk.Button(root, text="Run Main Script", width=20, command=run_main_script)
-main_script_button.pack(pady=10)
+#main_script_button = tk.Button(root, text="Run Main Script", width=20, command=run_main_script)
+#main_script_button.pack(pady=10)
+
+def auto_zoom_func():
+    toggle_setting('Automatischer Zoom')
+    settings = load_settings()
+    if settings['Automatischer Zoom'] == False:
+        auto_switch_botton.config(text='Auto-Zoom einschalten', foreground='white', background='green')
+    else: auto_switch_botton.config(text='Auto-Zoom ausschalten', foreground='white', background='red')
+    update_button_states()
+
+auto_zoom_button = tk.Button(root, text='Auto-Zoom einschalten', width=20, command=auto_zoom_func)
+auto_zoom_button.pack(pady=10)
+
+# change value and style for auto-pip and the other variants
+def auto_switch_func():
+    settings = load_settings()
+    if not settings["Auto-Bild-in-Bild"]:
+        settings["Auto-Bild-in-Bild"] = True
+        auto_switch_botton.config(text='Auto-BiB ausschalten', foreground='white', background='red')
+        settings["gross-Bild-in-Bild"] = False
+        big_switch_botton.config(text='grosses BiB einschalten', foreground='white', background='green')
+        settings["klein-Bild-in-Bild"] = False
+        small_switch_botton.config(text='Kleines BiB einschalten', foreground='white', background='green')
+    else:
+        settings["Auto-Bild-in-Bild"] = False
+        auto_switch_botton.config(text='Auto-BiB einschalten', foreground='white', background='green')
+    save_settings(settings)
+    update_button_states()
+
+auto_switch_botton = tk.Button(root, text='Auto-Bild-in-Bild einschalten', width=20, command=auto_switch_func)
+auto_switch_botton.pack(pady=10)
+
+# change value and style for bigpip and the other variants
+def big_switch_func():
+    settings = load_settings()
+    if not settings["gross-Bild-in-Bild"]:
+        settings["Auto-Bild-in-Bild"] = False
+        auto_switch_botton.config(text='Auto-BiB einschalten', foreground='white', background='green')
+        settings["gross-Bild-in-Bild"] = True
+        big_switch_botton.config(text='grosses BiB ausschalten', foreground='white', background='red')
+        settings["klein-Bild-in-Bild"] = False
+        small_switch_botton.config(text='Kleines BiB einschalten', foreground='white', background='green')
+    else:
+        settings["gross-Bild-in-Bild"] = False
+        big_switch_botton.config(text='grosses BiB einschalten', foreground='white', background='green')
+    save_settings(settings)
+    update_button_states()
+
+big_switch_botton = tk.Button(root, text='grosses Bild-in-Bild einschalten', width=20, command=big_switch_func)
+big_switch_botton.pack(pady=10)
+
+# change value and style for small pip and the other variants
+def small_switch_func():
+    settings = load_settings()
+    if not settings["klein-Bild-in-Bild"]:
+        settings["Auto-Bild-in-Bild"] = False
+        auto_switch_botton.config(text='Auto-BiB einschalten', foreground='white', background='green')
+        settings["gross-Bild-in-Bild"] = False
+        big_switch_botton.config(text='grosses BiB einschalten', foreground='white', background='green')
+        settings["klein-Bild-in-Bild"] = True
+        small_switch_botton.config(text='Kleines BiB ausschalten', foreground='white', background='red')
+    else:
+        settings["klein-Bild-in-Bild"] = False
+        big_switch_botton.config(text='Kleines BiB einschalten', foreground='white', background='green')
+    save_settings(settings)
+    update_button_states()
+
+small_switch_botton = tk.Button(root, text='Kleines Bild-in-Bild einschalten', width=20, command=small_switch_func)
+small_switch_botton.pack(pady=10)
 
 # Initialize the button states
 update_button_states()
+
+# Set the behavior when the window is closed
+root.protocol("WM_DELETE_WINDOW", on_close)
 
 # Run the Tkinter event loop
 root.mainloop()

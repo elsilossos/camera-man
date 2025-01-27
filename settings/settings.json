@@ -1,8 +1,7 @@
 {
-    "tech-preview": false,
-    "preview": false,
-    "web-cam-out": false,
-    "input-test": false,
-    "auto-zoom": false,
-    "auto-switch": false
+    "running": false,
+    "Automatischer Zoom": false,
+    "Auto-Bild-in-Bild": false,
+    "gross-Bild-in-Bild": false,
+    "klein-Bild-in-Bild": false
 }

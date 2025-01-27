@@ -3,8 +3,12 @@ import threading
 import queue 
 import time 
 import numpy as np
+import os
+import json
+import subprocess
+import sys
 import pyvirtualcam 
-import settings as stt
+#import settings as stt
 
 # Load the pre-trained Haar cascade for face detection
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
@@ -13,16 +17,31 @@ result_queue = queue.Queue()
 frame_queue = queue.Queue(maxsize=1)
 frame_queue2 = queue.Queue(maxsize=1)
 status_queue = queue.Queue(maxsize=1)
-settings = stt.get_settings()
 tech_preview = False                          # !!! settings
 preview = True
+# Path to your settings.json file
+SETTINGS_PATH = os.path.normpath('./settings/settings.json')
 
 
 
+ui_path = os.path.join(os.getcwd(), 'ui.py')
 
 
+# start up ui
+if sys.platform.startswith("win"):
+    # Windows-specific options to hide the window
+    startupinfo = subprocess.STARTUPINFO()
+    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    subprocess.Popen([sys.executable, ui_path], startupinfo=startupinfo)
+else:
+    # On Unix-based systems (Linux, macOS)
+    subprocess.Popen([sys.executable, ui_path])
 
+print('UI launched.')
 
+print(input())
+
+exit() 
 #################################
 #################################
 #################################
@@ -40,6 +59,20 @@ preview = True
 
 
 
+
+# functions to deal with settings
+
+# Function to load settings
+def load_settings():
+    if not os.path.exists(SETTINGS_PATH):
+        print("Error", "settings.json not found!")
+        return {}
+    with open(SETTINGS_PATH, 'r') as f:
+        return json.load(f)
+
+
+
+settings = load_settings()
 
 
 # define the worker thread function
