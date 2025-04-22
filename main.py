@@ -3,7 +3,7 @@ import threading
 import queue 
 import time 
 import numpy as np
-import pyvirtualcam 
+#import pyvirtualcam 
 import settings as stt
 import tkinter as tk
 
@@ -861,6 +861,7 @@ def main():
 
     # set control vars
     tech_preview_mem = tech_preview
+    preview_mem = preview
 
     cap = cv2.VideoCapture(in1)
     cap2 = cv2.VideoCapture(in2)
@@ -907,6 +908,7 @@ def main():
     # Initialize pyvirtualcam
     # with pyvirtualcam.Camera(width=frame_width, height=frame_height, fps=20, fourcc=544694642) as cam:                      !!! webcam-out
     while True:
+        print('Check!')
         # save recources in standby
         if standby: 
             time.sleep(1)
