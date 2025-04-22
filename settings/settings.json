@@ -1,6 +1,6 @@
 {
     "running": false,
-    "Automatischer Zoom": false,
+    "Automatischer Zoom": true,
     "Auto-Bild-in-Bild": false,
     "gross-Bild-in-Bild": false,
     "klein-Bild-in-Bild": false,

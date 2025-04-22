@@ -7,7 +7,7 @@ import os
 import json
 import subprocess
 import sys
-import pyvirtualcam 
+#import pyvirtualcam 
 #import settings as stt
 
 # Load the pre-trained Haar cascade for face detection
@@ -22,7 +22,7 @@ preview = True
 # Path to your settings.json file
 SETTINGS_PATH = os.path.normpath('./settings/settings.json')
 
-
+zoom_coeff_h = 0  # Initialize the global variable
 
 ui_path = os.path.join(os.getcwd(), 'ui.py')
 
@@ -64,11 +64,15 @@ print('UI launched.')
 
 # Function to load settings
 def load_settings():
-    if not os.path.exists(SETTINGS_PATH):
-        print("Error", "settings.json not found!")
-        return {}
-    with open(SETTINGS_PATH, 'r') as f:
-        return json.load(f)
+    try:
+        if not os.path.exists(SETTINGS_PATH):
+            print("Error", "settings.json not found!")
+            return {}
+        with open(SETTINGS_PATH, 'r') as f:
+            return json.load(f)
+    except:
+        settings = load_settings()
+        return settings
 
 
 
@@ -797,27 +801,33 @@ def display_json_on_image(json_file, output_file="output.jpg", img_size=(300, 40
 
 # Open a connection to the default camera (camera 0)
 cap = cv2.VideoCapture(0)
-print('Cam 1 running')
+print('Camera 1: ', cap)
 cap2 = cv2.VideoCapture(1)
-print('Cam 2 running')
+print('Camera 2: ', cap2)
 
-# Check if the camera opened successfully
-if not cap.isOpened():
-    print("Error: Could not open video device")
-    exit()
-if not cap2.isOpened():
-    print("Error: Could not open video device")
-    exit()
-
-trackers = []
-
+# Set the resolution to HD (1920x1080)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+cap2.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+cap2.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
 
 # Get the frame width and height
 frame_width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
 frame_height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-zoom_coeff_h = frame_height / 4
-#zoom_coeff_w = frame_width
 print('Width: ', frame_width, '\nHeight: ', frame_height)
+
+# Check if the camera opened successfully
+if not cap.isOpened():
+    print("Error: Could not open video device 1")
+    exit()
+else: print('Camera 1 opened successfully')
+if not cap2.isOpened():
+    print("Error: Could not open video device 2")
+    exit()
+else: print('Camera 2 opened successfully')
+
+trackers = []
+
 
 # set initial crops to max frame, both current (crr_crop) and target (tg_crop)
 crr_crop_x, crr_crop_y, crr_crop_w, crr_crop_h = 0, 0, frame_width, frame_height
@@ -925,7 +935,7 @@ while settings['running']:
         print(status)
         status_check = time.time()
 
-    if not settings['chroma-key']:
+    if settings['chroma-key'] == False:
         if settings['Auto-Bild-in-Bild']:
             
             # pull status from queue
@@ -965,19 +975,30 @@ while settings['running']:
             frame = small_split(frame, frame2)
         else: frame = frame
 
-    else:
+    elif settings['chroma-key'] == True:
         ret2, frame2 = cap2.read()
         if not ret2:
                 print("Error: Could not read frame2")
                 continue
         frame = chroma_key(background=frame, foreground=frame2, key_color=(0,0,0))
 
+    else: pass
+
     # Push the processed frame to the virtual webcam
     #cam.send(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
     #cam.sleep_until_next_frame()
 
-    # Display the window preview of finished frame
-    cv2.imshow('Preview', frame)           
+    # Create a named window with the WINDOW_NORMAL flag
+    cv2.namedWindow('Preview', cv2.WINDOW_NORMAL)
+
+    # Optionally, you can set the window size to match the frame's aspect ratio
+    cv2.resizeWindow('Preview', int(frame_width), int(frame_height))
+    #overwrite the frame height and width to HD values 1920x1080
+    #cv2.resizeWindow('Preview', int(1920), int(1080))
+
+    # Display the frame in the window
+    cv2.imshow('Preview', frame)  
+    # cv2.setWindowProperty('Preview', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)         
 
 
     '''

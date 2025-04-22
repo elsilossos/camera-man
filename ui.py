@@ -88,7 +88,7 @@ def auto_switch_func():
         #big_switch_botton.config(text='grosses BiB einschalten', foreground='white', background='green')
         settings["klein-Bild-in-Bild"] = False
         #small_switch_botton.config(text='Kleines BiB einschalten', foreground='white', background='green')
-        settings["Chroma-key"] = False
+        settings["chroma-key"] = False
     else:
         settings["Auto-Bild-in-Bild"] = False
         #auto_switch_botton.config(text='Auto-BiB einschalten', foreground='white', background='green')
@@ -108,7 +108,7 @@ def big_switch_func():
         #big_switch_botton.config(text='grosses BiB ausschalten', foreground='white', background='red')
         settings["klein-Bild-in-Bild"] = False
         #small_switch_botton.config(text='Kleines BiB einschalten', foreground='white', background='green')
-        settings["Chroma-key"] = False
+        settings["chroma-key"] = False
     else:
         settings["gross-Bild-in-Bild"] = False
         #big_switch_botton.config(text='grosses BiB einschalten', foreground='white', background='green')
@@ -128,7 +128,7 @@ def small_switch_func():
         #big_switch_botton.config(text='grosses BiB einschalten', foreground='white', background='green')
         settings["klein-Bild-in-Bild"] = True
         #small_switch_botton.config(text='Kleines BiB ausschalten', foreground='white', background='red')
-        settings["Chroma-key"] = False
+        settings["chroma-key"] = False
     else:
         settings["klein-Bild-in-Bild"] = False
         #big_switch_botton.config(text='Kleines BiB einschalten', foreground='white', background='green')
@@ -152,12 +152,12 @@ def cc_butt_switch_func():
         #small_switch_botton.config(text='Kleines BiB ausschalten', foreground='white', background='red')
         settings["chroma-key"] = True
     else:
-        settings["Chroma-key"] = False
+        settings["chroma-key"] = False
         #big_switch_botton.config(text='Kleines BiB einschalten', foreground='white', background='green')
     save_settings(settings)
     #update_button_states()
 
-cc_botton = tk.Button(root, text='Chroma-Key', width=20, command=cc_butt_switch_func)
+cc_botton = tk.Button(root, text='chroma-key', width=20, command=cc_butt_switch_func)
 cc_botton.pack(pady=10)
 
 # Initialize the button states
