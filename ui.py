@@ -56,7 +56,7 @@ root.geometry("400x300")
 buttons = {}
 
 #initialise settings:
-save_settings({"running": True, "Automatischer Zoom": False, "Auto-Bild-in-Bild": False, "gross-Bild-in-Bild": False, "klein-Bild-in-Bild": False, "chroma-key": False})
+save_settings({"running": True, "Automatischer Zoom": False, "Auto-Bild-in-Bild": False, "gross-Bild-in-Bild": False, "klein-Bild-in-Bild": False, "chroma-key": False, "tech-preview": False})
 
 # Create buttons to run the scripts
 #input_test_button = tk.Button(root, text="Run Input Test", width=20, command=run_input_test)
@@ -159,6 +159,21 @@ def cc_butt_switch_func():
 
 cc_botton = tk.Button(root, text='chroma-key', width=20, command=cc_butt_switch_func)
 cc_botton.pack(pady=10)
+
+# change value and style for tech-preview
+def tech_preview_func():
+    settings = load_settings()
+    if not settings.get("tech-preview", False):
+        settings["tech-preview"] = True
+        #tech_preview_button.config(text='Tech-Preview ausschalten', foreground='white', background='red')
+    else:
+        settings["tech-preview"] = False
+        #tech_preview_button.config(text='Tech-Preview einschalten', foreground='white', background='green')
+    save_settings(settings)
+    #update_button_states()
+
+tech_preview_button = tk.Button(root, text='Tech-Preview einschalten', width=20, command=tech_preview_func)
+tech_preview_button.pack(pady=10)
 
 # Initialize the button states
 #update_button_states()

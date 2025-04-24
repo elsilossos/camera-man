@@ -17,7 +17,7 @@ result_queue = queue.Queue()
 frame_queue = queue.Queue(maxsize=1)
 frame_queue2 = queue.Queue(maxsize=1)
 status_queue = queue.Queue(maxsize=1)
-tech_preview = False                          # !!! settings
+tech_preview = True                          # !!! settings
 preview = True
 # Path to your settings.json file
 SETTINGS_PATH = os.path.normpath('./settings/settings.json')
@@ -397,12 +397,12 @@ def cameraman(crr_crop: list, tg_crop: list):
     if crr_crop[3] != tg_crop[3]:
         dist = abs(crr_crop[3] - tg_crop[3])
         # calc how fast we habe to tilt based on dist
-        '''if dist > 50: speed = 10
+        if dist > 50: speed = 10
         elif dist > 35: speed = 8
         elif dist > 25: speed = 6
         elif dist > 10: speed = 4
-        else: speed = 2'''
-        speed = 2
+        else: speed = 2
+        #speed = 2
         
         # find hight
         if crr_crop[3] > tg_crop[3]: mv_h = crr_crop[3] - speed
@@ -464,10 +464,10 @@ def cameraman(crr_crop: list, tg_crop: list):
     mv_y = mv_center_y - mv_h/2
 
     # ensure ints are send
-    mv_x = int(mv_x)
-    mv_y = int(mv_y)
-    mv_w = int(mv_w)
-    mv_h = int(mv_h)
+    (mv_x) = abs(int(mv_x))
+    (mv_y) = abs(int(mv_y))
+    (mv_w) = abs(int(mv_w))
+    (mv_h) = abs(int(mv_h))
 
     return mv_x, mv_y, mv_w, mv_h
 
@@ -877,6 +877,9 @@ while settings['running']:
         print("Error: Could not read frame")
         break
 
+    if settings['tech-preview']:   
+        preview_frame = frame.copy()
+
     # Check if the worker thread is ready for a new frame 
     # and our minimum checking intervall has passed
     # only feed if auto-zoom is activated
@@ -921,7 +924,7 @@ while settings['running']:
     # finally do the zoom
     try: frame = zoom(frame, crr_crop_x, crr_crop_y, crr_crop_w, crr_crop_h)
     except: 
-        print('Woups!')
+        print('Woups: ', crr_crop_x, crr_crop_y, crr_crop_w, crr_crop_h)
         continue
     
 
@@ -1001,17 +1004,20 @@ while settings['running']:
     # cv2.setWindowProperty('Preview', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)         
 
 
-    '''
+    
     # Display the resulting frame
     if settings['tech-preview']: 
-        preview_frame = frame.copy()
         for face in faces:                          # this needs live kill switch
             x, y, w, h = face
             cv2.rectangle(preview_frame, (x, y), (x + w, y + h), (255, 0, 0), 2)    # blue square for faces
-        cv2.rectangle(preview_frame, (lv_crop_x, lv_crop_y), (lv_crop_x + lv_crop_w, lv_crop_y + lv_crop_h), (0, 255, 0), 2)            # green rectangle for current ideal
-        cv2.rectangle(preview_frame, (tg_crop_x, tg_crop_y), (tg_crop_x + tg_crop_w, tg_crop_y + tg_crop_h), (255, 168, 0), 2)          # cyan rectangle for target ideal
-        cv2.rectangle(preview_frame, (crr_crop_x, crr_crop_y), (crr_crop_x + crr_crop_w, crr_crop_y + crr_crop_h), (0, 0, 255), 2)      # blue square
-        cv2.imshow('Preview', preview_frame)  '''      
+        cv2.rectangle(preview_frame, (int(lv_crop_x), int(lv_crop_y)), (int(lv_crop_x + lv_crop_w), int(lv_crop_y + lv_crop_h)), (0, 255, 0), 2)            # green rectangle for current ideal
+        cv2.rectangle(preview_frame, (int(tg_crop_x), int(tg_crop_y)), (int(tg_crop_x + tg_crop_w), int(tg_crop_y + tg_crop_h)), (255, 168, 0), 2)          # cyan rectangle for target ideal
+        cv2.rectangle(preview_frame, (int(crr_crop_x), int(crr_crop_y)), (int(crr_crop_x + crr_crop_w), int(crr_crop_y + crr_crop_h)), (0, 0, 255), 2)      # blue square
+        cv2.imshow('Tech-Preview', preview_frame)   
+
+    else: 
+        try: cv2.destroyWindow('Tech-Preview') 
+        except: pass
 
     
 

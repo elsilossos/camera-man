@@ -18,6 +18,7 @@ def init():
             'input-test': False,
             'auto-zoom': False,
             'auto-switch': False,
+            'tech-preview': False
         }
         with open(settings_path, 'w') as s:
             s.write(json.dumps(settings, indent=1))  # Corrected this line to use json.dump() directly
