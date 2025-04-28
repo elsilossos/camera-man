@@ -391,7 +391,7 @@ def crop_dscn(crr_crop: list, lv_crop: list, zoom_sens=5, pan_sens=1, tilt_sens=
 
 
 # define a function that turns the current frame and the targetframe into the next frame
-def cameraman(crr_crop: list, tg_crop: list):
+def cameraman(crr_crop: list, tg_crop: list, frame_rate=30):
     '''a function that turns the current frame and the targetframe into the next frame
     practically it is zooming, panning and tilting one pixel at a time. Call in loop.
     Returns tuple with cropping info (x,y,w,h)'''
@@ -408,18 +408,24 @@ def cameraman(crr_crop: list, tg_crop: list):
     if crr_crop[3] > tg_crop[3] + 4 or crr_crop[3] < tg_crop[3] - 4:
         dist = abs(crr_crop[3] - tg_crop[3])
         # calc how fast we habe to tilt based on dist
-        if dist > 50: speed = 10
+        '''if dist > 50: speed = 10
         elif dist > 35: speed = 8
         elif dist > 25: speed = 6
         elif dist > 10: speed = 4
-        else: speed = 2
+        else: speed = 2'''
         #speed = 2
 
         # increase zoom_speed if dist is larger that speed times framerate
+        if dist > zoom_speed * frame_rate: zoom_speed += 2
+        elif dist < zoom_speed * frame_rate / 2: 
+            zoom_speed -= 2
+            if zoom_speed < 2: zoom_speed = 2
+        else: pass
+
         
         # find hight
-        if crr_crop[3] > tg_crop[3]: mv_h = crr_crop[3] - speed
-        else: mv_h = crr_crop[3] + speed
+        if crr_crop[3] > tg_crop[3]: mv_h = crr_crop[3] - zoom_speed
+        else: mv_h = crr_crop[3] + zoom_speed
 
         # calculate width in ratio to original input frame
         mv_w = int(frame_width / frame_height * mv_h)
@@ -427,18 +433,34 @@ def cameraman(crr_crop: list, tg_crop: list):
         mv_w = crr_crop[2]
         mv_h = crr_crop[3]
 
+
+
+
+
+
+
     # pan if not on target
     if crr_center[0] > tg_center[0] + 4 or crr_center[0] < tg_center[0] - 4 :
         dist = abs(crr_center[0] - tg_center[0])
         # calc how fast we habe to pan based on dist
-        if dist > 75: speed = 15
+        '''if dist > 75: speed = 15
         elif dist > 50: speed = 10
         elif dist > 35: speed = 7
         elif dist > 25: speed = 4
         elif dist > 10: speed = 2
-        else: speed = 1
-        if crr_center[0] > tg_center[0]: mv_center_x = crr_center[0] - speed
-        elif crr_center[0] < tg_center[0]: mv_center_x = crr_center[0] + speed
+        else: speed = 1'''
+
+
+        if dist > pan_speed * frame_rate: pan_speed += 2
+        elif dist < pan_speed * frame_rate / 2 and pan_speed > 2: 
+            pan_speed -= 2
+            if pan_speed < 2: pan_speed = 2
+        else: pass
+
+
+
+        if crr_center[0] > tg_center[0]: mv_center_x = crr_center[0] - pan_speed
+        elif crr_center[0] < tg_center[0]: mv_center_x = crr_center[0] + pan_speed
         else: mv_center_x = crr_center[0]
 
         # make sure to stay in frame on the RIGHT with the target
@@ -459,8 +481,21 @@ def cameraman(crr_crop: list, tg_crop: list):
         elif dist > 10: speed = 4
         elif dist > 5: speed = 2
         else: speed = 1
-        if crr_center[1] > tg_center[1]: mv_center_y = crr_center[1] - speed
-        elif crr_center[1] < tg_center[1]: mv_center_y = crr_center[1] + speed
+
+
+
+
+        if dist > tilt_speed * frame_rate: tilt_speed += 1
+        elif dist < tilt_speed * frame_rate / 2: 
+            tilt_speed -= 1
+            if tilt_speed < 1: tilt_speed = 1
+        else: pass
+
+
+
+
+        if crr_center[1] > tg_center[1]: mv_center_y = crr_center[1] - tilt_speed
+        elif crr_center[1] < tg_center[1]: mv_center_y = crr_center[1] + tilt_speed
         else: mv_center_y = crr_center[1]
 
         # make sure to stay in frame at the BOTTOM with the target
@@ -943,7 +978,8 @@ while settings['running']:
     # paint based on crop_target by passing crop_desc() into cameraman(), updating crr_crop-values
     crr_crop_x, crr_crop_y, crr_crop_w, crr_crop_h = cameraman(
         crr_crop=[crr_crop_x, crr_crop_y, crr_crop_w, crr_crop_h],
-        tg_crop=[tg_crop_x, tg_crop_y, tg_crop_w, tg_crop_h])
+        tg_crop=[tg_crop_x, tg_crop_y, tg_crop_w, tg_crop_h],
+        frame_rate=fps)
     
     # finally do the zoom
     try: frame = zoom(frame, crr_crop_x, crr_crop_y, crr_crop_w, crr_crop_h)
