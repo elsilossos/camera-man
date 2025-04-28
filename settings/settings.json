@@ -1,9 +1,10 @@
 {
     "running": false,
-    "Automatischer Zoom": true,
+    "Automatischer Zoom": false,
     "Auto-Bild-in-Bild": false,
     "gross-Bild-in-Bild": false,
     "klein-Bild-in-Bild": false,
     "chroma-key": false,
-    "tech-preview": true
+    "tech-preview": false,
+    "fps": 15.144187927411377
 }

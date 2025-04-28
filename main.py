@@ -19,6 +19,9 @@ frame_queue2 = queue.Queue(maxsize=1)
 status_queue = queue.Queue(maxsize=1)
 tech_preview = True                          # !!! settings
 preview = True
+zoom_speed = 2
+pan_speed = 2
+tilt_speed = 1
 # Path to your settings.json file
 SETTINGS_PATH = os.path.normpath('./settings/settings.json')
 
@@ -77,6 +80,12 @@ def load_settings():
 
 
 settings = load_settings()
+
+
+# Function to save settings
+def save_settings(settings):
+    with open(SETTINGS_PATH, 'w') as f:
+        json.dump(settings, f, indent=4)
 
 
 # define the worker thread function
@@ -387,6 +396,8 @@ def cameraman(crr_crop: list, tg_crop: list):
     practically it is zooming, panning and tilting one pixel at a time. Call in loop.
     Returns tuple with cropping info (x,y,w,h)'''
 
+    global zoom_speed, pan_speed, tilt_speed    
+
     # make center points for more esoteric (?) comparisons
     crr_center = [crr_crop[0]+crr_crop[2]/2, crr_crop[1]+crr_crop[3]/2]
     tg_center =  [tg_crop[0]+tg_crop[2]/2, tg_crop[1]+tg_crop[3]/2]
@@ -403,6 +414,8 @@ def cameraman(crr_crop: list, tg_crop: list):
         elif dist > 10: speed = 4
         else: speed = 2
         #speed = 2
+
+        # increase zoom_speed if dist is larger that speed times framerate
         
         # find hight
         if crr_crop[3] > tg_crop[3]: mv_h = crr_crop[3] - speed
@@ -736,8 +749,8 @@ def display_json_on_image(json_file, output_file="output.jpg", img_size=(300, 40
         data = json.load(file)
 
     # Ensure the data is a dictionary with boolean values
-    if not isinstance(data, dict) or not all(isinstance(v, bool) for v in data.values()):
-        raise ValueError("JSON file must contain a dictionary with boolean values.")
+    #if not isinstance(data, dict) or not all(isinstance(v, bool) for v in data.values()):
+       # raise ValueError("JSON file must contain a dictionary with boolean values.")
 
     # Create a black image
     height, width = img_size
@@ -857,6 +870,11 @@ min_check_intervall = 1
 status_check = time.time()
 status_intervall = 1
 status = 0
+fps_start = time.time()
+fps = 0
+settings['fps'] = fps
+settings['running'] = True
+save_settings(settings)
 
 settings = load_settings()
 print(settings)
@@ -864,8 +882,14 @@ debug_timer = time.time()
 # Initialize pyvirtualcam
 # with pyvirtualcam.Camera(width=frame_width, height=frame_height, fps=20, fourcc=544694642) as cam:          # not ready yet.... :(
 while settings['running']:
+    # calculate fps
+    fps = 1 / (time.time() - fps_start)
+    fps_start = time.time()
+
+    # save fps to settings every second
     if time.time() - debug_timer > 1:
-        print('check')
+        settings['fps'] = fps
+        save_settings(settings)
         debug_timer = time.time()
     # update settings
     settings = load_settings()
