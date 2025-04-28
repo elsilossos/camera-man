@@ -90,6 +90,8 @@ def save_settings(settings):
 
 # define the worker thread function
 def face_tracker_thread(frame_queue, result_queue, aspectR_w, aspectR_h):
+    '''define the worker thread function that will be used to detect faces in the frames.'''
+    face_detect_min_size = 40
     while True:
         frame = frame_queue.get()
 
@@ -98,7 +100,23 @@ def face_tracker_thread(frame_queue, result_queue, aspectR_w, aspectR_h):
 
         # Convert frame to grayscale for face detection
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=10, minSize=(40, 40))
+        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=10, minSize=(face_detect_min_size, face_detect_min_size))
+
+        # Sort the faces by height (face_h) in descending order
+        faces = sorted(faces, key=lambda face: face[3], reverse=True)
+
+        # Convert faces into a list of lists
+        faces = [list(face) for face in faces]
+
+        # Extract the height of the highest face
+        if faces:
+            highest_face_height = faces[0][3]
+
+        if highest_face_height: face_detect_min_size = highest_face_height * 0.6        # Adjust the minimum size based on the height of the highest face
+        if face_detect_min_size < 40: face_detect_min_size = 40
+        if not faces: face_detect_min_size = 40
+        
+        del highest_face_height  
         
         if len(faces) > 0:
             result_queue.put(faces)
