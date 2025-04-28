@@ -897,7 +897,6 @@ empty_since = time.time()
 # start time on check intervalls
 # face-tracking
 last_face_check = time.time()
-min_face_check_intervall = 0.5
 # change-checking
 last_change_check = time.time()
 min_check_intervall = 1
@@ -942,7 +941,7 @@ while settings['running']:
     # Check if the worker thread is ready for a new frame 
     # and our minimum checking intervall has passed
     # only feed if auto-zoom is activated
-    if frame_queue.empty() and time.time() - last_face_check > min_face_check_intervall and settings['Automatischer Zoom']:
+    if frame_queue.empty() and time.time() - last_face_check > settings['face-tracker-interval'] and settings['Automatischer Zoom']:
         frame_queue.put(frame)
         last_face_check = time.time()
     

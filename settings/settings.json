@@ -6,5 +6,6 @@
     "klein-Bild-in-Bild": false,
     "chroma-key": false,
     "tech-preview": true,
-    "fps": 10.798678712388229
+    "fps": 1.8111841366623773,
+    "face-tracker-interval": 0.3
 }

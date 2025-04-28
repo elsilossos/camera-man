@@ -56,7 +56,7 @@ root.geometry("400x300")
 buttons = {}
 
 #initialise settings:
-save_settings({"running": True, "Automatischer Zoom": False, "Auto-Bild-in-Bild": False, "gross-Bild-in-Bild": False, "klein-Bild-in-Bild": False, "chroma-key": False, "tech-preview": False})
+#save_settings({"running": True, "Automatischer Zoom": False, "Auto-Bild-in-Bild": False, "gross-Bild-in-Bild": False, "klein-Bild-in-Bild": False, "chroma-key": False, "tech-preview": False})
 
 # Create buttons to run the scripts
 #input_test_button = tk.Button(root, text="Run Input Test", width=20, command=run_input_test)
