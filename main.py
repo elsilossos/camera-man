@@ -165,7 +165,7 @@ def mk_crop_target(faces, aspectR_h, aspectR_w, max_crop_ratio=0.3, bg_factor=1)
     
 
     # logic for more than 1 face        
-    elif len(faces) > 1: 
+    elif len(faces) > 1:                        # there is something seriously wront here! XXX
         
         # get those faces
         face_list = []
