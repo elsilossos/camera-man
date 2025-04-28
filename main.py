@@ -113,7 +113,7 @@ def face_tracker_thread(frame_queue, result_queue, aspectR_w, aspectR_h):
 
 
 # define function that determines the ideal cropping based on facetracking
-def mk_crop_target(faces, aspectR_h, aspectR_w, max_crop_ratio=0.3, bg_factor=1):
+def mk_crop_target(faces, aspectR_h, aspectR_w, max_crop_ratio=0.4, face_multiplier=5.5, bg_factor=1):
     '''define function that determines the ideal cropping based on facetracking. 
     Returns a crop suggestion as a tuple (x,y,w,h)'''
 
@@ -136,7 +136,7 @@ def mk_crop_target(faces, aspectR_h, aspectR_w, max_crop_ratio=0.3, bg_factor=1)
         zoom_coeff_h = (zoom_coeff_h * 29 + face_h) / 30
 
         # get a multiple of the face hight as a the defining factor for crop size
-        crop_h = zoom_coeff_h * 4                         
+        crop_h = zoom_coeff_h * face_multiplier                        
 
         # check minimum zoom
         if crop_h < aspectR_h * max_crop_ratio:
@@ -768,7 +768,7 @@ def chroma_key(background, foreground, key_color=(0, 255, 0), tolerance=60):
 
 
 
-def display_json_on_image(json_file, output_file="output.jpg", img_size=(300, 400), font_scale=0.5, font_thickness=1):
+def display_json_on_image(json_file, output_file="output.jpg", img_size=(800, 400), font_scale=0.5, font_thickness=1):
     """
     Creates a black image and displays the contents of a JSON file (key-value pairs) as text on it.
 
@@ -789,6 +789,7 @@ def display_json_on_image(json_file, output_file="output.jpg", img_size=(300, 40
 
     # Create a black image
     height, width = img_size
+    height = len(data.keys()) * 30 + 50  # Adjust height based on number of items   
     image = np.zeros((height, width, 3), dtype=np.uint8)
 
     # Define font and starting position
@@ -958,7 +959,7 @@ while settings['running']:
     # calculate the frame if there is faces in the frame  
     if len(faces) > 0: 
         # calculate the cropping based on the current faces results
-        lv_crop_x, lv_crop_y, lv_crop_w, lv_crop_h = mk_crop_target(faces, aspectR_w=frame_width, aspectR_h=frame_height)
+        lv_crop_x, lv_crop_y, lv_crop_w, lv_crop_h = mk_crop_target(faces, aspectR_w=frame_width, aspectR_h=frame_height, face_multiplier=settings['face-multiplier'])
         
 
     # reset the frame to max view if there are no faces
