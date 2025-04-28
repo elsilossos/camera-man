@@ -108,14 +108,16 @@ def face_tracker_thread(frame_queue, result_queue, aspectR_w, aspectR_h):
         # Convert faces into a list of lists
         faces = [list(face) for face in faces]
 
+        highest_face_height = 40 * 0.6  # Default value for the highest face height
+
         # Extract the height of the highest face
         if faces:
-            highest_face_height = faces[0][3]
+            highest_face_height = faces[0][3].copy()  # Copy the height of the highest face
 
-        if highest_face_height: face_detect_min_size = highest_face_height * 0.6        # Adjust the minimum size based on the height of the highest face
+        if highest_face_height: face_detect_min_size = int(highest_face_height * 0.6)        # Adjust the minimum size based on the height of the highest face
         if face_detect_min_size < 40: face_detect_min_size = 40
         if not faces: face_detect_min_size = 40
-        
+
         del highest_face_height  
         
         if len(faces) > 0:
