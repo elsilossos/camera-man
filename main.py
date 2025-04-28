@@ -301,7 +301,7 @@ def mk_crop_target(faces, aspectR_h, aspectR_w, max_crop_ratio=0.3, bg_factor=1)
 # define logic to zoom and pan and not to zoom and pan
 def crop_dscn(crr_crop: list, lv_crop: list, zoom_sens=5, pan_sens=1, tilt_sens=5):
     ''' logic to zoom and pan and not to zoom and pan
-    zoom_sens is default 10 for 10%, but can be altered.
+    zoom_sens is default 5 for 5%, but can be altered.
     Returns a sensible crop target (x,y,w,h)'''
 
     # make center points for more esoteric (?) comparisons
@@ -394,7 +394,7 @@ def cameraman(crr_crop: list, tg_crop: list):
     mv_center_y = crr_center[1]
 
     # zoom if not on target
-    if crr_crop[3] != tg_crop[3]:
+    if crr_crop[3] > tg_crop[3] + 4 or crr_crop[3] < tg_crop[3] - 4:
         dist = abs(crr_crop[3] - tg_crop[3])
         # calc how fast we habe to tilt based on dist
         if dist > 50: speed = 10
@@ -415,7 +415,7 @@ def cameraman(crr_crop: list, tg_crop: list):
         mv_h = crr_crop[3]
 
     # pan if not on target
-    if crr_center[0] != tg_center[0]:
+    if crr_center[0] > tg_center[0] + 4 or crr_center[0] < tg_center[0] - 4 :
         dist = abs(crr_center[0] - tg_center[0])
         # calc how fast we habe to pan based on dist
         if dist > 75: speed = 15
@@ -437,7 +437,7 @@ def cameraman(crr_crop: list, tg_crop: list):
             mv_center_x = mv_center_x + abs(mv_center_x - mv_w/2)
 
     # tilt if not on target
-    if crr_center[1] != tg_center[1]:
+    if crr_center[1] > tg_center[1] + 4 or crr_center[1] < tg_center[1] - 4:
         dist = abs(crr_center[1] - tg_center[1])
         # calc how fast we habe to tilt based on dist
         if dist > 50: speed = 15
