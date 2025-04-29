@@ -7,6 +7,7 @@ import os
 import json
 import subprocess
 import sys
+from datetime import datetime 
 #import pyvirtualcam 
 #import settings as stt
 
@@ -24,6 +25,10 @@ pan_speed = 2
 tilt_speed = 1
 # Path to your settings.json file
 SETTINGS_PATH = os.path.normpath('./settings/settings.json')
+TIME_FORMAT = '%Y-%m-%d_%H:%M:%S'
+
+def msg(message: str):
+    print(f"[{datetime.now().strftime(format=TIME_FORMAT)}]:\t{message}")
 
 zoom_coeff_h = 0  # Initialize the global variable
 
@@ -40,9 +45,9 @@ else:
     # On Unix-based systems (Linux, macOS)
     subprocess.Popen([sys.executable, ui_path])
 
-print('UI launched.')
+msg('UI launched.')
 
-#print(input())
+#msg(input())
 
 #exit() 
 #################################
@@ -62,14 +67,13 @@ print('UI launched.')
 
 
 
-
 # functions to deal with settings
 
 # Function to load settings
 def load_settings():
     try:
         if not os.path.exists(SETTINGS_PATH):
-            print("Error", "settings.json not found!")
+            msg("Error", "settings.json not found!")
             return {}
         with open(SETTINGS_PATH, 'r') as f:
             return json.load(f)
@@ -823,7 +827,7 @@ def display_json_on_image(json_file, output_file="output.jpg", img_size=(800, 40
         cv2.putText(image, text, (x, y), font, font_scale, (255, 255, 255), font_thickness, lineType=cv2.LINE_AA)
         y += line_height
         if y + line_height > height:  # Stop if text exceeds image height
-            print("Warning: Text exceeds image height. Not all items will be displayed.")
+            msg("Warning: Text exceeds image height. Not all items will be displayed.")
             break
 
     return image
@@ -870,9 +874,9 @@ def display_json_on_image(json_file, output_file="output.jpg", img_size=(800, 40
 
 # Open a connection to the default camera (camera 0)
 cap = cv2.VideoCapture(0)
-print('Camera 1: ', cap)
+msg(f'Camera 1: {cap}')
 cap2 = cv2.VideoCapture(1)
-print('Camera 2: ', cap2)
+msg(f'Camera 2: {cap2}')
 
 # Set the resolution to HD (1920x1080)
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
@@ -883,17 +887,17 @@ cap2.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
 # Get the frame width and height
 frame_width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
 frame_height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-print('Width: ', frame_width, '\nHeight: ', frame_height)
+msg('Width: {frame_width}\nHeight: {frame_height}')
 
 # Check if the camera opened successfully
 if not cap.isOpened():
-    print("Error: Could not open video device 1")
+    msg("Error: Could not open video device 1")
     exit()
-else: print('Camera 1 opened successfully')
+else: msg('Camera 1 opened successfully')
 if not cap2.isOpened():
-    print("Error: Could not open video device 2")
+    msg("Error: Could not open video device 2")
     exit()
-else: print('Camera 2 opened successfully')
+else: msg('Camera 2 opened successfully')
 
 trackers = []
 
@@ -932,7 +936,7 @@ settings['running'] = True
 save_settings(settings)
 
 settings = load_settings()
-print(settings)
+msg(settings)
 debug_timer = time.time()
 # Initialize pyvirtualcam
 # with pyvirtualcam.Camera(width=frame_width, height=frame_height, fps=20, fourcc=544694642) as cam:          # not ready yet.... :(
@@ -953,7 +957,7 @@ while settings['running']:
     ret, frame = cap.read()
     
     if not ret:
-        print("Error: Could not read frame")
+        msg("Error: Could not read frame")
         break
 
     if settings['tech-preview']:   
@@ -1004,7 +1008,7 @@ while settings['running']:
     # finally do the zoom
     try: frame = zoom(frame, crr_crop_x, crr_crop_y, crr_crop_w, crr_crop_h)
     except: 
-        print('Woups: ', crr_crop_x, crr_crop_y, crr_crop_w, crr_crop_h)
+        msg('Woups: ', crr_crop_x, crr_crop_y, crr_crop_w, crr_crop_h)
         continue
     
 
@@ -1015,7 +1019,7 @@ while settings['running']:
     # degrade status
     if time.time() - status_check > status_intervall and status > 0:
         status -= 1
-        print(status)
+        msg(status)
         status_check = time.time()
 
     if settings['chroma-key'] == False:
@@ -1030,7 +1034,7 @@ while settings['running']:
             if status > 0:
                 ret2, frame2 = cap2.read()
                 if not ret2:
-                        print("Error: Could not read frame2")
+                        msg("Error: Could not read frame2")
                         continue
 
             # Check if the worker thread is ready for a new frame 
@@ -1041,7 +1045,7 @@ while settings['running']:
                     ret2, frame2 = cap2.read()
                     
                     if not ret2:
-                        print("Error: Could not read frame2")
+                        msg("Error: Could not read frame2")
                         continue
                 
 
@@ -1061,7 +1065,7 @@ while settings['running']:
     elif settings['chroma-key'] == True:
         ret2, frame2 = cap2.read()
         if not ret2:
-                print("Error: Could not read frame2")
+                msg("Error: Could not read frame2")
                 continue
         frame = chroma_key(background=frame, foreground=frame2, key_color=(0,0,0))
 
