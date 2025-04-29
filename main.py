@@ -93,11 +93,14 @@ def save_settings(settings):
 
 
 # define the worker thread function
-def face_tracker_thread(frame_queue, result_queue, aspectR_w, aspectR_h):
+def face_tracker_thread(frame_queue, result_queue, aspectR_w, aspectR_h, checking_interval=0.2):
     '''define the worker thread function that will be used to detect faces in the frames.'''
     face_detect_min_size = 40
+    faces_cache = []
     while True:
         frame = frame_queue.get()
+
+        # settings = load_settings()
 
         # exit condition
         if frame is None: break
@@ -114,9 +117,41 @@ def face_tracker_thread(frame_queue, result_queue, aspectR_w, aspectR_h):
 
         highest_face_height = 40 * 0.6  # Default value for the highest face height
 
+        # Check if the detected faces are the same as the cached ones
+        if len(faces_cache) == 0 and len(faces) > 0: 
+            faces_cache = [face + [0] for face in faces]  # Append a 0 to each face in the cache   
+        elif len(faces) > 0:
+            for cache_face in faces_cache: cache_face[4] += checking_interval  # Increment the cache face timer
+            # for each face in faces go over each face in cache an check whether it has ovelap 
+            for face in faces:
+                found = False
+                for cache_face in faces_cache:
+                    # check if the face is the same as the cached one
+                    if (face[0] < cache_face[0] + cache_face[2] and
+                        face[0] + face[2] > cache_face[0] and
+                        face[1] < cache_face[1] + cache_face[3] and
+                        face[1] + face[3] > cache_face[1]):
+                        new_width = int(abs(face[2] * 0.3 + cache_face[2] * 0.7))  # Update the width of the cached face
+                        new_hight = int(abs(face[3] * 0.3 + cache_face[3] * 0.7))  # Update the hight of the cached face
+                        cache_face[0] = int(abs(face[0] + cache_face[2] / 2 - new_width / 2))  # Update the x position of the cached face
+                        cache_face[1] = int(abs(face[1] + cache_face[3] / 2 - new_hight / 2))  # Update the y position of the cached face
+                        cache_face[2] = new_width
+                        cache_face[3] = new_hight
+                        cache_face[4] = 0  # Reset the timer for the cached face
+                        found = True
+                        break
+                if not found:
+                    # If the face is not found in the cache, add it to the cache with a timer
+                    faces_cache.append(face + [0])
+                    
+                
+        else: pass
+
+        if faces and faces_cache: faces = [face[:-1] for face in faces_cache if face[-1] < 2]  # Remove the last element from each face in the cache and only take those that are younger than two seconds
+
         # Extract the height of the highest face
         if faces:
-            highest_face_height = faces[0][3].copy()  # Copy the height of the highest face
+            highest_face_height = faces[0][3]  # Copy the height of the highest face
 
         if highest_face_height: face_detect_min_size = int(highest_face_height * 0.6)        # Adjust the minimum size based on the height of the highest face
         if face_detect_min_size < 40: face_detect_min_size = 40
@@ -909,7 +944,7 @@ lv_crop_x, lv_crop_y, lv_crop_w, lv_crop_h = 0, 0, frame_width, frame_height
 
 # initialise secundary and tertiary thread
 # 1
-face_tracker_thread = threading.Thread(target=face_tracker_thread, args=(frame_queue, result_queue, frame_width, frame_height))
+face_tracker_thread = threading.Thread(target=face_tracker_thread, args=(frame_queue, result_queue, frame_width, frame_height, settings['face-tracker-interval']))
 face_tracker_thread.start()
 # 2
 change_tracker_thread = threading.Thread(target=change_tracker_thread, args=(frame_queue2, status_queue))
