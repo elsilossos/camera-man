@@ -1013,7 +1013,8 @@ while settings['running']:
     # reset faces to empty if there were no face detections for 5 seconds. 
     if time.time() - empty_since > 5: faces = []
 
-    
+    if status > 5: face_multiplier = 3.5
+    else: face_multiplier = settings['face-multiplier']
 
     # calculate the frame if there is faces in the frame  
     if len(faces) > 0: 
