@@ -195,7 +195,7 @@ def mk_crop_target(faces, aspectR_h, aspectR_w, max_crop_ratio=0.4, face_multipl
         zoom_coeff_h = (zoom_coeff_h * 29 + face_h) / 30
 
         # get a multiple of the face hight as a the defining factor for crop size
-        crop_h = zoom_coeff_h * face_multiplier                        
+        crop_h = face_h * face_multiplier                        
 
         # check minimum zoom
         if crop_h < aspectR_h * max_crop_ratio:
